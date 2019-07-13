@@ -11,6 +11,7 @@ import org.sikuli.basics.Settings;
 import org.sikuli.idesupport.IDESupport;
 import org.sikuli.idesupport.IIDESupport;
 import org.sikuli.idesupport.IIndentationLogic;
+import org.sikuli.idesupport.IAutoCompleter;
 import org.sikuli.idesupport.syntaxhighlight.ResolutionException;
 import org.sikuli.idesupport.syntaxhighlight.grammar.Lexer;
 import org.sikuli.idesupport.syntaxhighlight.grammar.Token;
@@ -94,6 +95,83 @@ public class EditorPane extends JTextPane {
   private SikuliEditorKit editorKit;
   private EditorCurrentLineHighlighter lineHighlighter = null;
   private TransferHandler transferHandler = null;
+  private IAutoCompleter autoCompleteHandler = null;
+
+  private void initForScriptType() {
+    // initialize runner to speed up first script run
+    (new Thread() {
+      @Override
+      public void run() {
+        editorPaneRunner.init(null);
+      }
+    }).start();
+
+    editorPaneType = editorPaneRunner.getType();
+    indentationLogic = null;
+
+    if (JythonRunner.TYPE.equals(editorPaneType) || PythonRunner.TYPE.equals(editorPaneType)) {
+      IIDESupport ideSupport = SikulixIDE.getIDESupport(editorPaneType);
+      indentationLogic = ideSupport.getIndentationLogic();
+      indentationLogic.setTabWidth(PreferencesUser.get().getTabWidth());
+    }
+
+    if (editorPaneType != null) {
+      editorKit = new SikuliEditorKit(this);
+      setEditorKit(editorKit);
+      setContentType(editorPaneType);
+
+      if (indentationLogic != null) {
+        PreferencesUser.get().addPreferenceChangeListener(new PreferenceChangeListener() {
+          @Override
+          public void preferenceChange(PreferenceChangeEvent event) {
+            if (event.getKey().equals("TAB_WIDTH")) {
+              indentationLogic.setTabWidth(Integer.parseInt(event.getNewValue()));
+            }
+          }
+        });
+      }
+
+      String name = editorPaneRunner.getName();
+      try {
+        autoCompleteHandler = null;
+        Class clCompleter = Class.forName("org.sikuli.idesupport.autocomplete." + name + "Completer");
+        autoCompleteHandler = (IAutoCompleter) clCompleter.getConstructor().newInstance();
+        autoCompleteHandler.setPane(this);
+      } catch (Exception e) {
+      }
+      log(0,"");
+    }
+
+    if (transferHandler == null) {
+      transferHandler = new MyTransferHandler();
+    }
+    setTransferHandler(transferHandler);
+
+    if (lineHighlighter == null) {
+      lineHighlighter = new EditorCurrentLineHighlighter(this);
+      addCaretListener(lineHighlighter);
+      initKeyMap();
+      //addKeyListener(this);
+      //addCaretListener(this);
+    }
+
+    popMenuImage = new SikuliIDEPopUpMenu("POP_IMAGE", this);
+    if (!popMenuImage.isValidMenu()) {
+      popMenuImage = null;
+    }
+
+    setFont(new Font(PreferencesUser.get().getFontName(), Font.PLAIN, PreferencesUser.get().getFontSize()));
+    setMargin(new Insets(3, 3, 3, 3));
+    setBackground(Color.WHITE);
+    if (!Settings.isMac()) {
+      setSelectionColor(new Color(170, 200, 255));
+    }
+
+//      updateDocumentListeners("initBeforeLoad");
+
+    SikulixIDE.getStatusbar().setType(editorPaneType);
+    log(lvl, "InitTab: (%s)", editorPaneType);
+  }
 
   SikuliIDEPopUpMenu getPopMenuImage() {
     return popMenuImage;
@@ -101,7 +179,7 @@ public class EditorPane extends JTextPane {
 
   private SikuliIDEPopUpMenu popMenuImage;
 
-  SikuliIDEPopUpMenu getPopMenuCompletion() {
+  public SikuliIDEPopUpMenu getPopMenuCompletion() {
     return popMenuCompletion;
   }
 
@@ -110,6 +188,18 @@ public class EditorPane extends JTextPane {
   //TODO right mouse click in tab text
   private void handlePopup() {
     log(3, "text popup");
+  }
+
+  public void handleAutoComplete(int pos, int start, int end, int line, String textLine){
+    if (null == autoCompleteHandler) {
+      return;
+    }
+    String text = textLine.substring(0, pos - start);
+    if (!text.isEmpty()) {
+      Point caretPoint = getCaret().getMagicCaretPosition();
+      String msg = text + " # " + textLine.substring(text.length());
+      log(3, "(%d,%d) handleAutoComplete(%s): [%d.%d] %s", caretPoint.x, caretPoint.y, autoCompleteHandler.getName(), line + 1, pos, msg);
+    }
   }
 
   void updateDocumentListeners(String source) {
@@ -334,77 +424,6 @@ public class EditorPane extends JTextPane {
       restoreCaretPosition();
       setDirty(false);
     }
-  }
-
-  private void initForScriptType() {
-    // initialize runner to speed up first script run
-    (new Thread() {
-      @Override
-      public void run() {
-        editorPaneRunner.init(null);
-      }
-    }).start();
-
-    editorPaneType = editorPaneRunner.getType();
-    indentationLogic = null;
-
-    if (JythonRunner.TYPE.equals(editorPaneType) || PythonRunner.TYPE.equals(editorPaneType)) {
-      IIDESupport ideSupport = SikulixIDE.getIDESupport(editorPaneType);
-      indentationLogic = ideSupport.getIndentationLogic();
-      indentationLogic.setTabWidth(PreferencesUser.get().getTabWidth());
-    }
-
-    if (editorPaneType != null) {
-      editorKit = new SikuliEditorKit();
-      setEditorKit(editorKit);
-      setContentType(editorPaneType);
-
-      if (indentationLogic != null) {
-        PreferencesUser.get().addPreferenceChangeListener(new PreferenceChangeListener() {
-          @Override
-          public void preferenceChange(PreferenceChangeEvent event) {
-            if (event.getKey().equals("TAB_WIDTH")) {
-              indentationLogic.setTabWidth(Integer.parseInt(event.getNewValue()));
-            }
-          }
-        });
-      }
-    }
-
-    if (transferHandler == null) {
-      transferHandler = new MyTransferHandler();
-    }
-    setTransferHandler(transferHandler);
-
-    if (lineHighlighter == null) {
-      lineHighlighter = new EditorCurrentLineHighlighter(this);
-      addCaretListener(lineHighlighter);
-      initKeyMap();
-      //addKeyListener(this);
-      //addCaretListener(this);
-    }
-
-    popMenuImage = new SikuliIDEPopUpMenu("POP_IMAGE", this);
-    if (!popMenuImage.isValidMenu()) {
-      popMenuImage = null;
-    }
-
-    popMenuCompletion = new SikuliIDEPopUpMenu("POP_COMPLETION", this);
-    if (!popMenuCompletion.isValidMenu()) {
-      popMenuCompletion = null;
-    }
-
-    setFont(new Font(PreferencesUser.get().getFontName(), Font.PLAIN, PreferencesUser.get().getFontSize()));
-    setMargin(new Insets(3, 3, 3, 3));
-    setBackground(Color.WHITE);
-    if (!Settings.isMac()) {
-      setSelectionColor(new Color(170, 200, 255));
-    }
-
-//      updateDocumentListeners("initBeforeLoad");
-
-    SikulixIDE.getStatusbar().setType(editorPaneType);
-    log(lvl, "InitTab: (%s)", editorPaneType);
   }
 
   private boolean readContent(File scriptFile) {

@@ -19,7 +19,6 @@ public class SikuliEditorKit extends StyledEditorKit {
 
   private static final String me = "EditorKit: ";
   private ViewFactory _viewFactory;
-  private static EditorPane pane;
 
   public static final String deIndentAction = "SKL.DeindentAction";
   public static final String completionAction = "SKL.CompletionAction";
@@ -42,17 +41,10 @@ public class SikuliEditorKit extends StyledEditorKit {
           new NextVisualLineAction(selectionBeginLineAction, true, SwingConstants.WEST),
   };
 
-  private static SikuliIDEPopUpMenu popCompletion = null;
 
-  public SikuliEditorKit() {
-    pane = SikulixIDE.get().getCurrentCodePane();
+  public SikuliEditorKit(EditorPane pane) {
     _viewFactory = new EditorViewFactory();
-    ((EditorViewFactory) _viewFactory).setContentType(pane.getType());
-    popCompletion = pane.getPopMenuCompletion();
-    if (null == popCompletion || !popCompletion.isValidMenu()) {
-      popCompletion = null;
-    }
-
+    ((EditorViewFactory) _viewFactory).setContentType(SikulixIDE.get().getCurrentCodePane().getType());
   }
 
   public static class InsertTabAction extends TextAction {
@@ -388,7 +380,7 @@ public class SikuliEditorKit extends StyledEditorKit {
 
   public static class CompletionAction extends TextAction {
 
-    private Segment segLine;
+    private Segment lineText;
 
     public CompletionAction() {
       this(completionAction);
@@ -396,7 +388,7 @@ public class SikuliEditorKit extends StyledEditorKit {
 
     public CompletionAction(String name) {
       super(name);
-      segLine = new Segment();
+      lineText = new Segment();
     }
 
     @Override
@@ -408,25 +400,22 @@ public class SikuliEditorKit extends StyledEditorKit {
     public void actionPerformed(JTextComponent text) {
       StyledDocument doc = (StyledDocument) text.getDocument();
       Caret c = text.getCaret();
-      int dot = c.getDot();
-      if (dot != c.getMark()) {
+      int pos = c.getDot();
+      if (pos != c.getMark()) {
         return;
       }
       Element map = doc.getDefaultRootElement();
-      int line = map.getElementIndex(dot);
+      int line = map.getElementIndex(pos);
       Element elem = map.getElement(line);
       int start = elem.getStartOffset();
-      int end = dot;//elem.getEndOffset() - 1;
+      int end = elem.getEndOffset() - 1;
       try {
-        doc.getText(start, end - start, segLine);
+        doc.getText(start, end - start, lineText);
       } catch (BadLocationException e) {
         Debug.error("EditorPane: CompletionAction: BadLocationException %s", e.getMessage());
         return;
       }
-      Debug.log(3, "EditorPane: CompletionAction: [%d] |%s| (%d)", line + 1, segLine, dot);
-      if (popCompletion != null) {
-        popCompletion.show(pane, 100, 100);
-      }
+      SikulixIDE.get().getCurrentCodePane().handleAutoComplete(pos, start, end, line, lineText.toString());
     }
   }
 
@@ -633,7 +622,7 @@ public class SikuliEditorKit extends StyledEditorKit {
 
   @Override
   public String getContentType() {
-    return pane.getType();
+    return SikulixIDE.get().getCurrentCodePane().getType();
   }
 
   @Override
