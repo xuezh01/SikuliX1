@@ -380,24 +380,17 @@ public class SikuliEditorKit extends StyledEditorKit {
 
   public static class CompletionAction extends TextAction {
 
-    private Segment lineText;
-
     public CompletionAction() {
       this(completionAction);
     }
 
     public CompletionAction(String name) {
       super(name);
-      lineText = new Segment();
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
       JTextComponent text = (JTextComponent) e.getSource();
-      actionPerformed(text);
-    }
-
-    public void actionPerformed(JTextComponent text) {
       StyledDocument doc = (StyledDocument) text.getDocument();
       Caret c = text.getCaret();
       int pos = c.getDot();
@@ -409,13 +402,14 @@ public class SikuliEditorKit extends StyledEditorKit {
       Element elem = map.getElement(line);
       int start = elem.getStartOffset();
       int end = elem.getEndOffset() - 1;
+      Segment lineText = new Segment();
       try {
         doc.getText(start, end - start, lineText);
-      } catch (BadLocationException e) {
-        Debug.error("EditorPane: CompletionAction: BadLocationException %s", e.getMessage());
+      } catch (BadLocationException ex) {
+        Debug.error("EditorPane: CompletionAction: BadLocationException %s", ex.getMessage());
         return;
       }
-      SikulixIDE.get().getCurrentCodePane().handleAutoComplete(pos, start, end, line, lineText.toString());
+      SikulixIDE.get().getCurrentCodePane().handleAutoComplete(start, pos, lineText.toString());
     }
   }
 

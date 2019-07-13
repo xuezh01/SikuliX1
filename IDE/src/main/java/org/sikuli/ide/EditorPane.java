@@ -190,15 +190,12 @@ public class EditorPane extends JTextPane {
     log(3, "text popup");
   }
 
-  public void handleAutoComplete(int pos, int start, int end, int line, String textLine){
+  public void handleAutoComplete(int start, int pos, String textLine){
     if (null == autoCompleteHandler) {
       return;
     }
-    String text = textLine.substring(0, pos - start);
-    if (!text.isEmpty()) {
-      Point caretPoint = getCaret().getMagicCaretPosition();
-      String msg = text + " # " + textLine.substring(text.length());
-      log(3, "(%d,%d) handleAutoComplete(%s): [%d.%d] %s", caretPoint.x, caretPoint.y, autoCompleteHandler.getName(), line + 1, pos, msg);
+    if (pos - start > 0) {
+      autoCompleteHandler.handle(getCaret(), start, pos, textLine);
     }
   }
 
