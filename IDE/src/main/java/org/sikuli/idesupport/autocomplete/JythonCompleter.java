@@ -9,4 +9,9 @@ public class JythonCompleter extends AbstractCompleter {
     return NAME;
   }
 
+  @Override
+  void doInit() {
+
+  }
+
 }

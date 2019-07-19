@@ -179,12 +179,6 @@ public class EditorPane extends JTextPane {
 
   private SikuliIDEPopUpMenu popMenuImage;
 
-  public SikuliIDEPopUpMenu getPopMenuCompletion() {
-    return popMenuCompletion;
-  }
-
-  private SikuliIDEPopUpMenu popMenuCompletion;
-
   //TODO right mouse click in tab text
   private void handlePopup() {
     log(3, "text popup");
@@ -194,9 +188,7 @@ public class EditorPane extends JTextPane {
     if (null == autoCompleteHandler) {
       return;
     }
-    if (pos - start > 0) {
-      autoCompleteHandler.handle(getCaret(), start, pos, textLine);
-    }
+    autoCompleteHandler.handle(getCaret(), start, pos, textLine);
   }
 
   void updateDocumentListeners(String source) {

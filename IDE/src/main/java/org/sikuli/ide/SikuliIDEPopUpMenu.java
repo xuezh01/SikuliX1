@@ -15,12 +15,14 @@ import org.sikuli.script.support.RobotDesktop;
 import javax.swing.*;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Element;
+import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SikuliIDEPopUpMenu extends JPopupMenu {
@@ -41,6 +43,9 @@ public class SikuliIDEPopUpMenu extends JPopupMenu {
   private EditorPane refEditorPane = null;
   public static final String POP_LINE = "POP_LINE";
   private EditorLineNumberView refLineNumberView = null;
+  public static final String POP_COMPLETION = "POP_COMPLETION";
+  private SikuliIDEPopUpMenu refParentMenu = null;
+  private static final String POP_COMPLETION_SUB = "POP_COMPLETION_SUB";
 
   private static String[] selOptionsTypes = null;
 
@@ -59,13 +64,19 @@ public class SikuliIDEPopUpMenu extends JPopupMenu {
 
   public SikuliIDEPopUpMenu(String pType, Object ref) {
     popType = pType;
-    init(ref);
+    init(ref, null);
   }
 
-  private void init(Object ref) {
+  public SikuliIDEPopUpMenu(String pType, Object ref, Object commands) {
+    popType = pType;
+    init(ref, commands);
+  }
+
+  private void init(Object ref, Object commands) {
     if (popType.equals(POP_TAB)) {
       refTab = (CloseableTabbedPane) ref;
       popTabMenu();
+      //TODO POP_IMAGE implementation
 //    } else if (popType.equals(POP_IMAGE)) {
 //      refEditorPane = (EditorPane) ref;
 //      popImageMenu();
@@ -73,6 +84,12 @@ public class SikuliIDEPopUpMenu extends JPopupMenu {
       refLineNumberView = (EditorLineNumberView) ref;
       refEditorPane = ((EditorLineNumberView) ref).getEditorPane();
       popLineMenu();
+    } else if (popType.equals(POP_COMPLETION)) {
+      refEditorPane = (EditorPane) ref;
+      popCompletionMenu((List<String>) commands);
+    } else if (popType.equals(POP_COMPLETION_SUB)) {
+      refParentMenu = (SikuliIDEPopUpMenu) ref;
+      popCompletionSubMenu((String) commands);
     } else {
       validMenu = false;
     }
@@ -84,6 +101,14 @@ public class SikuliIDEPopUpMenu extends JPopupMenu {
   public void doShow(CloseableTabbedPane comp, MouseEvent event) {
     mouseTrigger = event;
     show(comp, event.getX(), event.getY());
+  }
+
+  public int showX, showY;
+
+  public void showCompletion(EditorPane pane, int x, int y) {
+    showX = x;
+    showY = y;
+    show((Component) pane, x, y);
   }
 
   private void fireIDEFileMenu(String name) throws NoSuchMethodException {
@@ -169,7 +194,6 @@ public class SikuliIDEPopUpMenu extends JPopupMenu {
     public void actionPerformed(ActionEvent e) {
       if (actMethod != null) {
         try {
-          log(lvl, "PopMenuAction." + action);
           Object[] params = new Object[1];
           params[0] = e;
           actMethod.invoke(this, params);
@@ -324,7 +348,7 @@ public class SikuliIDEPopUpMenu extends JPopupMenu {
         @Override
         public void run() {
           String popFile = Sikulix.popFile("test");
-          log(3, "file selected: %s", popFile);
+          log(lvl, "file selected: %s", popFile);
           if (popFile.endsWith("/") || popFile.endsWith("\\")) {
             popFile = popFile.substring(0, popFile.length() - 1);
           }
@@ -533,6 +557,78 @@ public class SikuliIDEPopUpMenu extends JPopupMenu {
 
     public void doRunSel(ActionEvent ae) {
       refEditorPane.runSelection();
+    }
+  }
+
+  Map<String, SikuliIDEPopUpMenu> subMenus = new HashMap<>();
+  Map<String, String> commandModels = new HashMap<>();
+
+  private void popCompletionMenu(List<String> commands) {
+    try {
+      String parentMenu = "";
+      SikuliIDEPopUpMenu subMenu = null;
+      for (String command : commands) {
+        if (command.startsWith("_")) {
+          parentMenu = command.substring(1);
+          subMenu = new SikuliIDEPopUpMenu(POP_COMPLETION_SUB, this, parentMenu);
+          subMenus.put(parentMenu, subMenu);
+          PopCompletionAction completionAction = new PopCompletionAction("completionBasic", this);
+          JMenuItem menuItem = createMenuItem(parentMenu, completionAction);
+          add(menuItem);
+        } else {
+          if (subMenu == null) {
+            continue;
+          }
+          String item = command.split("\\(")[0];
+          subMenu.add(createMenuItem(item, new PopCompletionSubAction("completionBasic", this)));
+          commandModels.put(item, command);
+        }
+      }
+    } catch (NoSuchMethodException ex) {
+      validMenu = false;
+    }
+  }
+
+  class PopCompletionAction extends MenuAction {
+
+    public PopCompletionAction() {
+      super();
+    }
+
+    SikuliIDEPopUpMenu menu = null;
+
+    public PopCompletionAction(String item, SikuliIDEPopUpMenu menu) throws NoSuchMethodException {
+      super(item);
+      this.menu = menu;
+    }
+
+    public void completionBasic(ActionEvent ae) {
+      String command = ae.getActionCommand();
+      SikuliIDEPopUpMenu subMenu = menu.subMenus.get(command);
+      subMenu.show((Component) menu.refEditorPane, menu.showX, menu.showY);
+    }
+  }
+
+  private void popCompletionSubMenu(String command) {
+  }
+
+  class PopCompletionSubAction extends MenuAction {
+
+    public PopCompletionSubAction() {
+      super();
+    }
+
+    SikuliIDEPopUpMenu menu = null;
+
+    public PopCompletionSubAction(String item, SikuliIDEPopUpMenu menu) throws NoSuchMethodException {
+      super(item);
+      this.menu = menu;
+    }
+
+    public void completionBasic(ActionEvent ae) {
+      String command = ae.getActionCommand();
+      String model = menu.commandModels.get(command);
+      log(lvl, "CompletionAction: %s (%s)", command, model);
     }
   }
 }
