@@ -4,14 +4,14 @@
 
 package org.sikuli.script.runnerSupport;
 
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.lang.reflect.Method;
-
 import org.sikuli.basics.Debug;
 import org.sikuli.script.*;
 import org.sikuli.script.support.RunTime;
 import org.sikuli.script.support.Runner;
+
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.lang.reflect.Method;
 
 /**
  * EXPERIMENTAL --- INTERNAL USE ONLY<br>
@@ -46,7 +46,7 @@ public class JavaScriptSupport implements IRunnerSupport{
      * @return true if we are on Java 8+
      */
     public static boolean isNashorn() {
-        return RunTime.get().isJava8();
+        return RunTime.isJava8();
     }
 
     /**

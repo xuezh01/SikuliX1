@@ -700,7 +700,7 @@ public class JythonSupport implements IRunnerSupport {
 
   //<editor-fold desc="18 RobotFramework support">
   public boolean prepareRobot() {
-    if (runTime.isRunningFromJar()) {
+    if (RunTime.isRunningFromJar()) {
       File fLibRobot = new File(runTime.fSikulixLib, "robot");
       if (!fLibRobot.exists()) {
         log(-1, "prepareRobot: not available: %s", fLibRobot);

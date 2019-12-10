@@ -22,10 +22,8 @@ import org.sikuli.script.SX as Do
 #Debug.log(3, "Jython: sikuli: Sikuli: RunTime, Setting, Debug")
 import org.sikuli.script.support.RunTime as JRunTime
 
-class RunTime(JRunTime):
+class RUNTIME(JRunTime):
   pass
-
-RUNTIME = RunTime.get()
 
 import org.sikuli.basics.Settings as Settings
 
@@ -181,9 +179,6 @@ def load(jar):
 
 def prepareRobot():
   return JythonHelper.get().prepareRobot()
-
-def show():
-  RUNTIME.show()
 
 ##
 # public for options handling (property file)

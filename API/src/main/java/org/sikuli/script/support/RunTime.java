@@ -7,7 +7,6 @@ import org.apache.commons.cli.CommandLine;
 import org.sikuli.basics.*;
 import org.sikuli.natives.WinUtil;
 import org.sikuli.script.*;
-import org.sikuli.script.runnerSupport.JythonSupport;
 import org.sikuli.script.runners.ProcessRunner;
 import org.sikuli.script.support.IScriptRunner.EffectiveRunner;
 import org.sikuli.util.CommandArgs;
@@ -15,14 +14,15 @@ import org.sikuli.util.CommandArgsEnum;
 import org.sikuli.util.Highlight;
 import org.sikuli.vnc.VNCScreen;
 
-import java.awt.*;
+import java.awt.AWTException;
+import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.*;
 import java.security.CodeSource;
-import java.util.List;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,6 +43,10 @@ public class RunTime {
 
   static final long started = new Date().getTime();
   static final long obsolete = started - 2 * 24 * 60 * 60 * 1000;
+
+  public static int javaVersion = 0;
+  public static int javaArch = 32;
+  public static String javaShow = "not-set";
 
   public static Properties sysProps = System.getProperties();
   public static final String sysPropJavaHome = System.getProperty("java.home");
@@ -67,6 +71,7 @@ public class RunTime {
   public static final String sysPropLineSep = System.getProperty("line.separator");
   public static final String sysPropPathSep = System.getProperty("path.separator");
 
+  private static String appType = null;
   public static String SXVersion = "";
   public static int SikuliVersionMajor;
   public static int SikuliVersionMinor;
@@ -79,32 +84,38 @@ public class RunTime {
   public static String SXVersionLong;
   public static String SXVersionShort;
 
+  public static String osName = "NotKnown";
+  public static String sysName = "NotKnown";
+  public static String osVersion = "";
   private static final String osNameShort = sysPropOsName.substring(0, 1).toLowerCase();
+  public static boolean runningWindows = false;
+  public static boolean runningMac = false;
+  public static boolean runningLinux = false;
+  public static String linuxDistro = "???LINUX???";
 
   private static String sxSandbox = System.getProperty("sikuli.Sandbox");
   private static File sxAppDataFolder = null;
-  public File fSikulixExtensions = null;
-  public File fSikulixLib = null;
+  public static File fSikulixExtensions = null;
+  public static File fSikulixLib = null;
   public static File fSikulixStore;
   public static File fTempPath = null;
-  public File fBaseTempPath = null;
-  public String fpBaseTempPath = "";
-  public File fLibsFolder = null;
-  public String fpJarLibs = "/sikulixlibs/";
-  public String fpSysLibs = null;
+  public static File fBaseTempPath = null;
+  public static String fpBaseTempPath = "";
+
+  public static String fpJarLibs = "/sikulixlibs/";
+  public static File fLibsFolder = null;
 
   private static File sxRunningJar = null;
   private static boolean startAsIDE = true;
+  public static String runType = "INIT";
+  private static File isRunning = null;
+  private static FileOutputStream isRunningFile = null;
+  private static String isRunningFilename = "s_i_k_u_l_i-ide-isrunning";
+
+  private static List<URL> classPathActual = new ArrayList<>();
+  private static List<String> classPathList = new ArrayList<>();
 
   static {
-    //<editor-fold desc="01 add shutdown hook">
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        runShutdownHook();
-      }
-    });
-    //</editor-fold>
     //<editor-fold desc="02 version info">
     // from from jar/Settings/sikulixversion.txt
     Properties prop = new Properties();
@@ -161,7 +172,64 @@ public class RunTime {
     }
     SXVersionShort = SXVersion.replace("-SNAPSHOT", "");
     //</editor-fold>
-    //<editor-fold desc="03 folders">
+    //<editor-fold defaultstate="collapsed" desc="03 java versions">
+    String vJava = sysPropJSpecVersion;
+    String vVM = sysPropJVmVersion;
+    String vClass = sysPropJClassVersion;
+    String vSysArch = sysPropSunArchDataModel;
+    if (vSysArch != null) {
+      if (vSysArch.contains("64")) {
+        javaArch = 64;
+      } else {
+        vSysArch = null;
+      }
+    }
+
+    try {
+      if (vJava.startsWith("1.")) {
+        javaVersion = Integer.parseInt(vJava.substring(2, 3));
+      } else {
+        String[] parts = vJava.split("\\.");
+        javaVersion = Integer.parseInt(parts[0]);
+      }
+      javaShow = String.format("java %d version %s vm %s class %s arch %s",
+              javaVersion, vJava, vVM, vClass, vSysArch);
+    } catch (Exception ex) {
+    }
+
+    if (javaVersion < 8) {
+      throw new SikuliXception(String.format("fatal: " + "Java version must at least be 8 (%s)", javaShow));
+    }
+
+    if (null == vSysArch) {
+      throw new SikuliXception(String.format("fatal: " + "Java arch must be 64 Bit (%s)", javaShow));
+    }
+    //</editor-fold>
+    //<editor-fold desc="03 os version">
+    osVersion = sysPropOsVersion;
+    String os = sysPropOsName.toLowerCase();
+    if (os.startsWith("windows")) {
+      sysName = "windows";
+      osName = "Windows";
+      runningWindows = true;
+      NL = "\r\n";
+    } else if (os.startsWith("mac")) {
+      sysName = "mac";
+      osName = "Mac OSX";
+      runningMac = true;
+    } else if (os.startsWith("linux")) {
+      sysName = "linux";
+      osName = "Linux";
+      runningLinux = true;
+    } else {
+      // Presume Unix -- pretend to be Linux
+      sysName = os;
+      osName = sysPropOsName;
+      runningLinux = true;
+      linuxDistro = sysPropOsName;
+    }
+    //</editor-fold>
+    //<editor-fold desc="10 folders">
     if (sysPropUserHome == null || sysPropUserHome.isEmpty() || !(fUserHome = new File(sysPropUserHome)).exists()) {
       throw new SikuliXception(String.format("fatal: " + "JavaSystemProperty::user.home not valid"));
     }
@@ -172,8 +240,59 @@ public class RunTime {
     //</editor-fold>
   }
 
-  private static void initStatic() {
-    getAppDataFolder();
+  private static void initStatic(String type) {
+    log(3, "global init: entering");
+    //<editor-fold desc="01 add shutdown hook">
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      @Override
+      public void run() {
+        runShutdownHook();
+      }
+    });
+    //</editor-fold>
+    runType = type;
+    runTimeClass = RunTime.class;
+    CodeSource codeSrc = runTimeClass.getProtectionDomain().getCodeSource();
+    fSxBaseJar = null;
+    URL urlCodeSrc = null;
+    String urlCodeSrcProto = "not-set";
+    if (codeSrc != null) {
+      urlCodeSrc = codeSrc.getLocation();
+      urlCodeSrcProto = urlCodeSrc.getProtocol();
+      if (null != codeSrc) {
+        fSxBaseJar = new File(codeSrc.getLocation().getPath());
+        if (urlCodeSrcProto == "file") {
+          runningAs = "CLASSES";
+          if (urlCodeSrc.getPath().endsWith(".jar")) {
+            runningAs = "JAR";
+          }
+        }
+      }
+    }
+    appType = "from a jar";
+    if (fSxBaseJar != null) {
+      String baseJarName = fSxBaseJar.getName();
+      fSxBase = fSxBaseJar.getParentFile();
+      log(4, "runningAs: %s (%s) in: %s", runningAs, baseJarName, fSxBase.getAbsolutePath());
+      Debug.setWithTimeElapsed();
+//      if (baseJarName.contains("classes")) {
+//        runningJar = false;
+//        fSxProject = fSxBase.getParentFile().getParentFile();
+//        log(4, "not jar - supposing Maven project: %s", fSxProject);
+//        appType = "in Maven project from classes";
+//      } else if ("target".equals(fSxBase.getName())) {
+//        fSxProject = fSxBase.getParentFile().getParentFile();
+//        log(4, "folder target detected - supposing Maven project: %s", fSxProject);
+//        appType = "in Maven project from some jar";
+//      } else {
+//        //TODO what???
+//      }
+    } else {
+      dumpClassPath();
+      throw new SikuliXception(String.format("no valid Java context (%s)", runTimeClass));
+    }
+
+    File appDataFolder = getAppDataFolder();
     if (!isSandbox()) {
       String tmpdir = sysPropJIoTmpdir;
       if (tmpdir != null && !tmpdir.isEmpty()) {
@@ -191,9 +310,87 @@ public class RunTime {
         throw new SikuliXception(String.format("init: Sandbox Temp not possible: %s", fTempPath));
       }
     }
+    fBaseTempPath = new File(fTempPath, String.format("Sikulix_%d", FileManager.getRandomInt()));
+    fpBaseTempPath = fBaseTempPath.getAbsolutePath();
+    fBaseTempPath.mkdirs();
+    log(3, " trying temp folder: %s", fpBaseTempPath);
+    try {
+      File tempTest = new File(fBaseTempPath, "tempTest.txt");
+      FileManager.writeStringToFile("temp test", tempTest);
+      boolean success = true;
+      if (tempTest.exists()) {
+        tempTest.delete();
+        if (tempTest.exists()) {
+          success = false;
+        }
+      } else {
+        success = false;
+      }
+      if (!success) {
+        throw new SikuliXception("init: temp folder not useable");
+      }
+    } catch (Exception e) {
+      throw new SikuliXception("init: temp folder not writable");
+    }
 
-    fSikulixStore = new File(getAppDataFolder(), "SikulixStore");
+    for (String aFile : fTempPath.list()) {
+      if ((aFile.startsWith("Sikulix") && (new File(aFile).isFile()))
+              || (aFile.startsWith("jffi") && aFile.endsWith(".tmp"))) {
+        FileManager.deleteFileOrFolder(new File(fTempPath, aFile));
+      }
+    }
+
+    if (!appDataFolder.exists()) {
+      appDataFolder.mkdirs();
+    }
+    if (!appDataFolder.exists()) {
+      throw new SikuliXception(String.format(appDataMsg, appDataFolder));
+    }
+    fSikulixExtensions = new File(appDataFolder, "Extensions");
+    if (!fSikulixExtensions.exists()) {
+      fSikulixExtensions.mkdir();
+    }
+    fSikulixLib = new File(appDataFolder, "Lib");
+
+    fLibsFolder = new File(getAppDataFolder(), "SikulixLibs");
+    fpJarLibs += sysName + "/libs" + javaArch;
+
+    fSikulixStore = new File(appDataFolder, "SikulixStore");
     fSikulixStore.mkdir();
+
+    if ("IDE".equals(type) && !runningScripts() && !isAllowMultiple()) {
+      isRunning = new File(fTempPath, isRunningFilename);
+      boolean shouldTerminate = false;
+      try {
+        isRunning.createNewFile();
+        isRunningFile = new FileOutputStream(isRunning);
+        if (null == isRunningFile.getChannel().tryLock()) {
+          Class<?> classIDE = Class.forName("org.sikuli.ide.SikulixIDE");
+          Method stopSplash = classIDE.getMethod("stopSplash", new Class[0]);
+          stopSplash.invoke(null, new Object[0]);
+          Sikulix.popError("Terminating: IDE already running");
+          shouldTerminate = true;
+        }
+      } catch (Exception ex) {
+        Sikulix.popError("Terminating on FatalError: cannot access IDE lock for/n" + isRunning);
+        shouldTerminate = true;
+      }
+      if (shouldTerminate) {
+        System.exit(1);
+      }
+    }
+    if ("IDE".equals(type)) {
+      initIDEbefore();
+      initAPI();
+      initIDEafter();
+    } else {
+      initAPI();
+    }
+
+    if (Debug.getDebugLevel() == minLvl) {
+      show();
+    }
+    log(3, "global init: leaving");
   }
 
   public static boolean isIDE() {
@@ -383,7 +580,6 @@ public class RunTime {
     String jarName = runningJar.getName();
     RunTime.startLog(1, "Running: %s", runningJar);
 
-    initStatic();
     RunTime.startLog(1, "AppData%s: %s",
         (sxSandbox != null ? " (Sandbox)" : ""),
         getAppDataPath());
@@ -476,6 +672,7 @@ java.desktop/sun.awt=ALL-UNNAMED
 
     getRunningJar(type);
     evalArgsStart(args);
+    initStatic(type);
     Debug.log(3, "Sikulix: starting " + startType);
     if (isSandbox()) {
       String javaTemp = new File(getAppDataFolder().getParent(), "SikulixJavaTemp").getAbsolutePath();
@@ -977,19 +1174,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     IDE, API, INIT
   }
 
-  private enum theSystem {
-    WIN, MAC, LUX, FOO
-  }
-
-  public enum RunType {
-    JAR, CLASSES, OTHER
-  }
-
-  public RunType runningAs = RunType.OTHER;
-
-  public boolean runningIDE() {
-    return Type.IDE.equals(runType);
-  }
+  public static String runningAs = "OTHER";
 
   private static boolean isTerminating = false;
 
@@ -997,10 +1182,6 @@ java.desktop/sun.awt=ALL-UNNAMED
 
   public static boolean testing = false;
 
-  public Type runType = Type.INIT;
-
-  private List<URL> classPathActual = new ArrayList<>();
-  private List<String> classPathList = new ArrayList<>();
   boolean areLibsExported = false;
   private Map<String, Boolean> libsLoaded = new HashMap<String, Boolean>();
 
@@ -1014,26 +1195,9 @@ java.desktop/sun.awt=ALL-UNNAMED
 
   private int lastScriptRunReturnCode = 0;
 
-  public File fSxBase = null;
-  public File fSxBaseJar = null;
-  public File fSxProject = null;
-  public File fSxProjectTestScriptsJS = null;
-  public File fSxProjectTestScripts = null;
-  public String fpContent = "sikulixcontent";
-
-  public boolean runningJar = true;
-  public boolean runningInProject = false;
-  public boolean runningWindows = false;
-  public boolean runningMac = false;
-  public boolean runningLinux = false;
-  public String javaShow = "not-set";
-  public int javaArch = 32;
-  public int javaVersion = 0;
-  public String osName = "NotKnown";
-  public String sysName = "NotKnown";
-  public String osVersion = "";
-  private String appType = null;
-  public String linuxDistro = "???LINUX???";
+  private static File fSxBase = null;
+  private static String fpContent = "sikulixcontent";
+  public static File fSxBaseJar = null;
 
   public String SXSystemVersion;
   public String SXJavaVersion;
@@ -1043,8 +1207,6 @@ java.desktop/sun.awt=ALL-UNNAMED
   public static final String libOpenCV = "opencv_java"; //Core.NATIVE_LIBRARY_NAME;
   public final static String runCmdError = "*****error*****";
   public static String NL = "\n";
-  public File fLibsProvided;
-  public File fLibsLocal;
   public boolean useLibsProvided = false;
   private String lastResult = "";
   public boolean isJythonReady = false;
@@ -1056,87 +1218,16 @@ java.desktop/sun.awt=ALL-UNNAMED
 
   public static synchronized RunTime get() {
     if (runTime == null) {
-      return get(Type.API);
+      return get("API");
     }
     return runTime;
   }
 
-  public static synchronized RunTime get(Type typ) {
-    //<editor-fold desc="00 prolog">
+  public static synchronized RunTime get(String type) {
     if (runTime != null) {
       return runTime;
     }
     runTime = new RunTime();
-
-    if (isDevelop()) {
-      dumpSysProps();
-    }
-    //</editor-fold>
-
-    //<editor-fold defaultstate="collapsed" desc="01 java versions">
-    String vJava = sysPropJSpecVersion;
-    String vVM = sysPropJVmVersion;
-    String vClass = sysPropJClassVersion;
-    String vSysArch = sysPropSunArchDataModel;
-    if (vSysArch != null) {
-      if (vSysArch.contains("64")) {
-        runTime.javaArch = 64;
-      } else {
-        vSysArch = null;
-      }
-    }
-
-    try {
-      if (vJava.startsWith("1.")) {
-        runTime.javaVersion = Integer.parseInt(vJava.substring(2, 3));
-      } else {
-        String[] parts = vJava.split("\\.");
-        runTime.javaVersion = Integer.parseInt(parts[0]);
-      }
-      runTime.javaShow = String.format("java %d version %s vm %s class %s arch %s",
-          runTime.javaVersion, vJava, vVM, vClass, vSysArch);
-    } catch (Exception ex) {
-    }
-
-    if (runTime.javaVersion < 8) {
-      throw new SikuliXception(String.format("fatal: " + "Java version must at least be 8 (%s)", runTime.javaShow));
-    }
-
-    if (null == vSysArch) {
-      throw new SikuliXception(String.format("fatal: " + "Java arch must be 64 Bit (%s)", runTime.javaShow));
-    }
-    //</editor-fold>
-
-    //<editor-fold desc="02 os version">
-    runTime.osVersion = sysPropOsVersion;
-    String os = sysPropOsName.toLowerCase();
-    if (os.startsWith("windows")) {
-      runTime.sysName = "windows";
-      runTime.osName = "Windows";
-      runTime.runningWindows = true;
-      runTime.NL = "\r\n";
-    } else if (os.startsWith("mac")) {
-      runTime.sysName = "mac";
-      runTime.osName = "Mac OSX";
-      runTime.runningMac = true;
-    } else if (os.startsWith("linux")) {
-      runTime.sysName = "linux";
-      runTime.osName = "Linux";
-      runTime.runningLinux = true;
-    } else {
-      // Presume Unix -- pretend to be Linux
-      runTime.sysName = os;
-      runTime.osName = sysPropOsName;
-      runTime.runningLinux = true;
-      runTime.linuxDistro = sysPropOsName;
-    }
-    //</editor-fold>
-
-    //<editor-fold desc="03 folders">
-    runTime.fpJarLibs += runTime.sysName + "/libs" + runTime.javaArch;
-    runTime.fpSysLibs = runTime.fpJarLibs.substring(1);
-
-    //</editor-fold>
 
     //<editor-fold desc="04 options">
     sxOptions = Options.init(runTime);
@@ -1155,149 +1246,66 @@ java.desktop/sun.awt=ALL-UNNAMED
     runTime.initSikulixOptions();
     //</editor-fold>
 
-    //<editor-fold desc="05 addShutdownHook">
-    //</editor-fold>
-
-    //<editor-fold desc="99 epilog init">
-    runTime.init(typ);
-    if (Type.IDE.equals(typ)) {
-      runTime.initIDEbefore();
-      runTime.initAPI();
-      runTime.initIDEafter();
-    } else {
-      runTime.initAPI();
-    }
     return runTime;
-    //</editor-fold>
   }
 
-  File isRunning = null;
-  FileOutputStream isRunningFile = null;
-  String isRunningFilename = "s_i_k_u_l_i-ide-isrunning";
+  private static RobotDesktop cleanupRobot = null;
 
-  private void init(Type typ) {
-    log(4, "global init: entering as: %s", typ);
-
-    fBaseTempPath = new File(fTempPath, String.format("Sikulix_%d", FileManager.getRandomInt()));
-    fpBaseTempPath = fBaseTempPath.getAbsolutePath();
-    fBaseTempPath.mkdirs();
-    log(3, " trying temp folder: %s", fpBaseTempPath);
+  private static void initAPI() {
+    log(4, "initAPI: entering");
     try {
-      File tempTest = new File(fBaseTempPath, "tempTest.txt");
-      FileManager.writeStringToFile("temp test", tempTest);
-      boolean success = true;
-      if (tempTest.exists()) {
-        tempTest.delete();
-        if (tempTest.exists()) {
-          success = false;
-        }
-      } else {
-        success = false;
-      }
-      if (!success) {
-        throw new SikuliXception("init: temp folder not useable");
-      }
-    } catch (Exception e) {
-      throw new SikuliXception("init: temp folder not writable");
+      cleanupRobot = new RobotDesktop();
+    } catch (AWTException e) {
     }
-    if (Type.IDE.equals(typ) && !runningScripts() && !isAllowMultiple()) {
-      isRunning = new File(fTempPath, isRunningFilename);
-      boolean shouldTerminate = false;
+    log(4, "initAPI: leaving");
+  }
+
+  public static boolean isRunningIDE = false;
+
+  private static void initIDEbefore() {
+    log(4, "initIDEbefore: entering");
+    isRunningIDE = true;
+    log(4, "initIDEbefore: leaving");
+  }
+
+  private static void initIDEafter() {
+    log(4, "initIDEafter: entering");
+    try {
+      cIDE = Class.forName("org.sikuli.ide.SikulixIDE");
+      mHide = cIDE.getMethod("hideIDE", new Class[0]);
+      mShow = cIDE.getMethod("showIDE", new Class[0]);
+    } catch (Exception ex) {
+      log(-1, "SikulixIDE: reflection: %s", ex.getMessage());
+    }
+    log(4, "initIDEafter: leaving");
+  }
+
+  static Class<?> cIDE = null;
+  static Method mHide = null;
+  static Method mShow = null;
+
+  public void hideIDE() {
+    if (null != cIDE) {
       try {
-        isRunning.createNewFile();
-        isRunningFile = new FileOutputStream(isRunning);
-        if (null == isRunningFile.getChannel().tryLock()) {
-          Class<?> classIDE = Class.forName("org.sikuli.ide.SikulixIDE");
-          Method stopSplash = classIDE.getMethod("stopSplash", new Class[0]);
-          stopSplash.invoke(null, new Object[0]);
-          Sikulix.popError("Terminating: IDE already running");
-          shouldTerminate = true;
-        }
-      } catch (Exception ex) {
-        Sikulix.popError("Terminating on FatalError: cannot access IDE lock for/n" + isRunning);
-        shouldTerminate = true;
-      }
-      if (shouldTerminate) {
-        System.exit(1);
+        mHide.invoke(null, new Object[0]);
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      } catch (InvocationTargetException e) {
+        e.printStackTrace();
       }
     }
+  }
 
-    for (String aFile : fTempPath.list()) {
-      if ((aFile.startsWith("Sikulix") && (new File(aFile).isFile()))
-          || (aFile.startsWith("jffi") && aFile.endsWith(".tmp"))) {
-        FileManager.deleteFileOrFolder(new File(fTempPath, aFile));
+  public void showIDE() {
+    if (null != cIDE) {
+      try {
+        mShow.invoke(null, new Object[0]);
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      } catch (InvocationTargetException e) {
+        e.printStackTrace();
       }
     }
-
-    File appDataFolder = getAppDataFolder();
-    if (!appDataFolder.exists()) {
-      appDataFolder.mkdirs();
-    }
-    if (!appDataFolder.exists()) {
-      throw new SikuliXception(String.format(appDataMsg, appDataFolder));
-    }
-    fSikulixExtensions = new File(appDataFolder, "Extensions");
-    if (!fSikulixExtensions.exists()) {
-      fSikulixExtensions.mkdir();
-    }
-    fSikulixLib = new File(appDataFolder, "Lib");
-    fLibsProvided = new File(appDataFolder, fpSysLibs);
-    fLibsLocal = fLibsProvided.getParentFile().getParentFile();
-
-    runTimeClass = RunTime.class;
-    CodeSource codeSrc = runTimeClass.getProtectionDomain().getCodeSource();
-    fSxBaseJar = null;
-    URL urlCodeSrc = null;
-    String urlCodeSrcProto = "not-set";
-    if (codeSrc != null) {
-      urlCodeSrc = codeSrc.getLocation();
-      urlCodeSrcProto = urlCodeSrc.getProtocol();
-      if (null != codeSrc) {
-        fSxBaseJar = new File(codeSrc.getLocation().getPath());
-        if (urlCodeSrcProto == "file") {
-          runningAs = RunType.CLASSES;
-          if (urlCodeSrc.getPath().endsWith(".jar")) {
-            runningAs = RunType.JAR;
-          }
-        } else {
-          runningAs = RunType.OTHER;
-        }
-      }
-    }
-    appType = "from a jar";
-    if (fSxBaseJar != null) {
-      String baseJarName = fSxBaseJar.getName();
-      fSxBase = fSxBaseJar.getParentFile();
-      log(4, "runningAs: %s (%s) in: %s", runningAs, baseJarName, fSxBase.getAbsolutePath());
-      Debug.setWithTimeElapsed();
-      if (baseJarName.contains("classes")) {
-        runningJar = false;
-        fSxProject = fSxBase.getParentFile().getParentFile();
-        log(4, "not jar - supposing Maven project: %s", fSxProject);
-        appType = "in Maven project from classes";
-        runningInProject = true;
-      } else if ("target".equals(fSxBase.getName())) {
-        fSxProject = fSxBase.getParentFile().getParentFile();
-        log(4, "folder target detected - supposing Maven project: %s", fSxProject);
-        appType = "in Maven project from some jar";
-        runningInProject = true;
-      } else {
-        //TODO what???
-      }
-    } else {
-      dumpClassPath();
-      throw new SikuliXception(String.format("no valid Java context (%s)", runTimeClass));
-    }
-    if (runningInProject) {
-      fSxProjectTestScriptsJS = new File(fSxProject, "StuffContainer/testScripts/testJavaScript");
-      fSxProjectTestScripts = new File(fSxProject, "StuffContainer/testScripts");
-    }
-
-    runType = typ;
-    if (Debug.getDebugLevel() == minLvl) {
-      show();
-    }
-    log(4, "global init: leaving");
   }
   //</editor-fold>
 
@@ -1612,7 +1620,6 @@ java.desktop/sun.awt=ALL-UNNAMED
 /*
     export
 */
-    fLibsFolder = new File(getAppDataFolder(), "SikulixLibs");
     String libMsg = "folder exists:";
     if (fLibsFolder.exists()) {
       String[] resourceList = fLibsFolder.list(new FilenameFilter() {
@@ -1721,69 +1728,6 @@ java.desktop/sun.awt=ALL-UNNAMED
   }
   //</editor-fold>
 
-  //<editor-fold defaultstate="collapsed" desc="07 init for IDE">
-  public static boolean isRunningIDE = false;
-
-  private void initIDEbefore() {
-    log(4, "initIDEbefore: entering");
-    isRunningIDE = true;
-    log(4, "initIDEbefore: leaving");
-  }
-
-  private void initIDEafter() {
-    log(4, "initIDEafter: entering");
-    try {
-      cIDE = Class.forName("org.sikuli.ide.SikulixIDE");
-      mHide = cIDE.getMethod("hideIDE", new Class[0]);
-      mShow = cIDE.getMethod("showIDE", new Class[0]);
-    } catch (Exception ex) {
-      log(-1, "SikulixIDE: reflection: %s", ex.getMessage());
-    }
-    log(4, "initIDEafter: leaving");
-  }
-
-  Class<?> cIDE = null;
-  Method mHide = null;
-  Method mShow = null;
-
-  public void hideIDE() {
-    if (null != cIDE) {
-      try {
-        mHide.invoke(null, new Object[0]);
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      }
-    }
-  }
-
-  public void showIDE() {
-    if (null != cIDE) {
-      try {
-        mShow.invoke(null, new Object[0]);
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      }
-    }
-  }
-//</editor-fold>
-
-  //<editor-fold defaultstate="collapsed" desc="06 init for API">
-  private static RobotDesktop cleanupRobot = null;
-
-  private void initAPI() {
-    log(4, "initAPI: entering");
-    try {
-      cleanupRobot = new RobotDesktop();
-    } catch (AWTException e) {
-    }
-    log(4, "initAPI: leaving");
-  }
-  //</editor-fold>
-
   //<editor-fold defaultstate="collapsed" desc="20 helpers">
   public void crash() {
     int x = 1 / 0;
@@ -1826,11 +1770,11 @@ java.desktop/sun.awt=ALL-UNNAMED
    *
    * @return true if the code source location is a folder ending with classes (Maven convention)
    */
-  public boolean isRunningFromJar() {
-    return runningJar;
+  public static boolean isRunningFromJar() {
+    return sxRunningJar.getName().endsWith(".jar");
   }
 
-  public boolean isJava9(String... args) {
+  public static boolean isJava9(String... args) {
     if (javaVersion > 8) {
       if (args.length > 0) {
         log(-1, "*** Java 9+: %s", args[0]);
@@ -1841,19 +1785,19 @@ java.desktop/sun.awt=ALL-UNNAMED
     }
   }
 
-  public boolean isJava8() {
+  public static boolean isJava8() {
     return javaVersion > 7;
   }
 
-  public boolean needsRobotFake() {
+  public static boolean needsRobotFake() {
     return runningMac && Settings.ClickTypeHack;
   }
 
   /**
    * print out some basic information about the current runtime environment
    */
-  public void show() {
-    if (sxOptions.hasOptions()) {
+  public static void show() {
+    if (sxOptions != null && sxOptions.hasOptions()) {
       sxOptions.dumpOptions();
     }
     logp("***** show environment for %s %s", SXVersionLong, runType);
@@ -1866,19 +1810,17 @@ java.desktop/sun.awt=ALL-UNNAMED
     logp(javaShow);
     logp("app data folder: %s", getAppDataFolder());
     //logp("libs folder: %s", fLibsFolder);
-    if (runningJar) {
-      logp("executing jar: %s", fSxBaseJar);
-    }
-    if (Debug.getDebugLevel() > minLvl - 1 || isJythonReady) {
-      dumpClassPath("sikulix");
-      if (isJythonReady) {
-        int saveLvl = Debug.getDebugLevel();
-        Debug.setDebugLevel(lvl);
-        JythonSupport.get().showSysPath();
-        Screen.showMonitors();
-        Debug.setDebugLevel(saveLvl);
-      }
-    }
+    logp("executing jar/classes: %s", fSxBaseJar);
+//    if (Debug.getDebugLevel() > minLvl - 1 || isJythonReady) {
+//      dumpClassPath("sikulix");
+//      if (isJythonReady) {
+//        int saveLvl = Debug.getDebugLevel();
+//        Debug.setDebugLevel(lvl);
+//        JythonSupport.get().showSysPath();
+//        Screen.showMonitors();
+//        Debug.setDebugLevel(saveLvl);
+//      }
+//    }
     logp("***** show environment end");
   }
 
@@ -2629,7 +2571,7 @@ java.desktop/sun.awt=ALL-UNNAMED
   //</editor-fold>
 
   //<editor-fold defaultstate="collapsed" desc="12 classpath handling">
-  private void storeClassPath() {
+  private static void storeClassPath() {
     if (isJava9()) {
       String separator = File.pathSeparator;
       String cp = sysPropJClassPath;
@@ -2648,7 +2590,7 @@ java.desktop/sun.awt=ALL-UNNAMED
   /**
    * print the current classpath entries to sysout
    */
-  public void dumpClassPath() {
+  public static void dumpClassPath() {
     dumpClassPath(null);
   }
 
@@ -2657,7 +2599,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    *
    * @param filter the fileter string
    */
-  public void dumpClassPath(String filter) {
+  public static void dumpClassPath(String filter) {
     filter = filter == null ? "" : filter;
     logp("*** classpath dump %s", filter);
     storeClassPath();
