@@ -788,20 +788,6 @@ public class Debug {
     log(3, message);
   }
 
-  public static void logCallStack(int level, String message) {
-    if (RunTime.isDevelop()) {
-      System.out.println("--------------------------------CallStack---------------------------------> " + message);
-      StackTraceElement[] elements = new Exception().getStackTrace();
-      int count = 0;
-      for (StackTraceElement element : elements) {
-        count++;
-        if (count > level)
-          System.out.println(element.toString());
-      }
-			System.out.println("--------------------------------CallStack--------------------------------->");
-    }
-  }
-
   /**
    * INTERNAL USE: special debug messages
    *

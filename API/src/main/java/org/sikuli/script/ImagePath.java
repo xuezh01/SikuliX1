@@ -422,7 +422,7 @@ public class ImagePath {
   public static boolean addJar(String fpJar, String fpImage) {
     URL pathURL = null;
     if (".".equals(fpJar)) {
-      fpJar = RunTime.get().fSxBaseJar.getAbsolutePath();
+      fpJar = RunTime.getRunningJar().getAbsolutePath(); //get().fSxBaseJar.getAbsolutePath();
       if (!fpJar.endsWith(".jar")) {
         return false;
       }

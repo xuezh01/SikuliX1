@@ -101,7 +101,6 @@ public class JythonSupport implements IRunnerSupport {
       interpreter = null;
     }
     //instance.log(lvl, "init: success");
-    runTime.isJythonReady = true;
   }
 
   public void interpreterCleanup() {

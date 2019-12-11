@@ -17,13 +17,6 @@ import java.util.Date;
  */
 public class Settings {
 
-
-  public static synchronized void init(RunTime givenRunTime) {
-    runTime = givenRunTime;
-  }
-
-  private static RunTime runTime = null;
-
   public static boolean experimental = false;
 
   public static boolean FindProfiling = false;
@@ -195,7 +188,7 @@ public class Settings {
   }
 
   public static String getVersion() {
-    return RunTime.get().getVersion();
+    return RunTime.getVersion();
   }
 
   public static String getVersionBuild() {

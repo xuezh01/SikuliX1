@@ -72,8 +72,10 @@ public class AutoUpdater {
     return bdetails;
   }
 
+  private String[] ServerList = {};
+
   public int checkUpdate() {
-    for (String s : SikulixIDE.runTime.ServerList) {
+    for (String s : ServerList) {
       try {
         if (checkUpdate(s)) {
           smajor = SikulixIDE.runTime.SikuliVersionMajor;

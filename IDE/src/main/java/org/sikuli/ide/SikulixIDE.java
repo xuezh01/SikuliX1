@@ -1840,7 +1840,7 @@ public class SikulixIDE extends JFrame {
     }
 
     private void askBugOrAnswer(String msg, String title, String url) {
-      String si = runTime.getSystemInfo();
+      String si = RunTime.getSystemInfo();
       System.out.println(si);
       msg = String.format(msg, si);
       if (Sikulix.popAsk(msg, title)) {
