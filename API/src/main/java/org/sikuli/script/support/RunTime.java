@@ -108,7 +108,6 @@ public class RunTime {
   public static File fLibsFolder = null;
 
   private static String fpContent = "sikulixcontent";
-  public static File fSxBaseJar = null;
 
   private static File sxRunningJar = null;
   private static boolean runningAsIDE = true;
@@ -536,13 +535,6 @@ public class RunTime {
 
   public static boolean isIDE() {
     return runningAsIDE;
-  }
-
-  static boolean isObsolete(long refTime) {
-    if (refTime == 0) {
-      return false;
-    }
-    return refTime < obsolete;
   }
 
   public static boolean isDevelop() {
@@ -2848,6 +2840,13 @@ java.desktop/sun.awt=ALL-UNNAMED
       runTime.log(4, "cleanTemp: " + f.getName());
       FileManager.deleteFileOrFolder(f.getAbsolutePath());
     }
+  }
+
+  private static boolean isObsolete(long refTime) {
+    if (refTime == 0) {
+      return false;
+    }
+    return refTime < obsolete;
   }
   //</editor-fold>
 }
