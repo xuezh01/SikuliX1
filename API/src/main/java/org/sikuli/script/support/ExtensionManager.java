@@ -557,7 +557,7 @@ public class ExtensionManager {
 
   private ExtensionManager() {
     extensions = new ArrayList<Extension>();
-    fExtensions = RunTime.get().fSikulixExtensions;
+    fExtensions = RunTime.getSikulixExtensions();
     Extension e;
     String path, name, version;
     for (File d : fExtensions.listFiles()) {
@@ -589,7 +589,7 @@ public class ExtensionManager {
       //url = RunTime.get().SikuliRepo + name + "-" + version + ".jar";
     }
     String extPath = fExtensions.getAbsolutePath();
-    String tmpdir = RunTime.get().fpBaseTempPath;
+    String tmpdir = RunTime.getSikulixBaseTempPath();
     try {
       File localFile = new File(FileManager.downloadURL(new URL(url), tmpdir));
       String extName = localFile.getName();

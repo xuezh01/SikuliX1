@@ -138,7 +138,7 @@ public class TextRecognizer {
         textRecognizer = null;
         String helpURL;
         Debug.error("TextRecognizer: start: Tesseract library problems: %s", e.getMessage());
-        if (RunTime.get().runningWindows) {
+        if (RunTime.runningWindows) {
           helpURL = "https://github.com/RaiMan/SikuliX1/wiki/Windows:-Problems-with-libraries-OpenCV-or-Tesseract";
         } else {
           helpURL = "https://github.com/RaiMan/SikuliX1/wiki/macOS-Linux:-Support-libraries-for-Tess4J-Tesseract-4-OCR";

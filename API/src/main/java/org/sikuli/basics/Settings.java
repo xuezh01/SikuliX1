@@ -168,15 +168,15 @@ public class Settings {
   }
 
   public static boolean isWindows() {
-    return RunTime.get().runningWindows;
+    return RunTime.runningWindows;
   }
 
   public static boolean isLinux() {
-    return RunTime.get().runningLinux;
+    return RunTime.runningLinux;
   }
 
   public static boolean isMac() {
-    return RunTime.get().runningMac;
+    return RunTime.runningMac;
   }
 
   public static String getOSVersion() {
@@ -188,10 +188,10 @@ public class Settings {
   }
 
   public static String getVersion() {
-    return RunTime.getVersion();
+    return RunTime.getSikulixVersion();
   }
 
   public static String getVersionBuild() {
-    return RunTime.get().SXVersionLong;
+    return RunTime.getSikulixVersionLong();
   }
 }

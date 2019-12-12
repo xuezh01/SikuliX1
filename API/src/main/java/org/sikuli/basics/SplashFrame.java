@@ -26,45 +26,45 @@ public class SplashFrame extends JFrame {
   private static JFrame splash = null;
   private static long start = 0;
 
-  public static void displaySplash(String[] args) {
-    if (args == null) {
-      if (splash != null) {
-        splash.dispose();
-      }
-      if (start > 0) {
-        Debug.log(3, "Sikuli-Script startup: " + ((new Date()).getTime() - start));
-        start = 0;
-      }
-      return;
-    }
-    if (args.length > 0 && (args[0].contains("-testSetup") || args[0].startsWith("-i"))) {
-      start = (new Date()).getTime();
-      String[] splashArgs = new String[]{
-        "splash", "#", "#" + RunTime.get().SXVersionAPI, "", "#", "#... starting - please wait ..."};
-      for (String e : args) {
-        splashArgs[3] += e + " ";
-      }
-      splashArgs[3] = splashArgs[3].trim();
-      splash = new SplashFrame(splashArgs);
-    }
-  }
+//  public static void displaySplash(String[] args) {
+//    if (args == null) {
+//      if (splash != null) {
+//        splash.dispose();
+//      }
+//      if (start > 0) {
+//        Debug.log(3, "Sikuli-Script startup: " + ((new Date()).getTime() - start));
+//        start = 0;
+//      }
+//      return;
+//    }
+//    if (args.length > 0 && (args[0].contains("-testSetup") || args[0].startsWith("-i"))) {
+//      start = (new Date()).getTime();
+//      String[] splashArgs = new String[]{
+//        "splash", "#", "#" + RunTime.get().versionAPI, "", "#", "#... starting - please wait ..."};
+//      for (String e : args) {
+//        splashArgs[3] += e + " ";
+//      }
+//      splashArgs[3] = splashArgs[3].trim();
+//      splash = new SplashFrame(splashArgs);
+//    }
+//  }
 
-  public static void displaySplashFirstTime(String[] args) {
-    if (args == null) {
-      if (splash != null) {
-        splash.dispose();
-      }
-      if (start > 0) {
-        Debug.log(3, "Sikuli-IDE environment setup: " + ((new Date()).getTime() - start));
-        start = 0;
-      }
-      return;
-    }
-    start = (new Date()).getTime();
-    String[] splashArgs = new String[]{
-      "splash", "#", "#" + RunTime.get().SXVersionIDE, "", "#", "#... setting up environement - please wait ..."};
-    splash = new SplashFrame(splashArgs);
-  }
+//  public static void displaySplashFirstTime(String[] args) {
+//    if (args == null) {
+//      if (splash != null) {
+//        splash.dispose();
+//      }
+//      if (start > 0) {
+//        Debug.log(3, "Sikuli-IDE environment setup: " + ((new Date()).getTime() - start));
+//        start = 0;
+//      }
+//      return;
+//    }
+//    start = (new Date()).getTime();
+//    String[] splashArgs = new String[]{
+//      "splash", "#", "#" + RunTime.get().SXVersionIDE, "", "#", "#... setting up environement - please wait ..."};
+//    splash = new SplashFrame(splashArgs);
+//  }
 
   private JLabel lbl, txt;
   private Container pane;

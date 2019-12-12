@@ -86,7 +86,7 @@ public class JythonRunner extends AbstractLocalFileScriptRunner {
 
       jythonSupport = JythonSupport.get();
       jythonSupport.getSysPath();
-      String fpAPILib = runTime.fSikulixLib.getAbsolutePath();
+      String fpAPILib = RunTime.getSikulixLib().getAbsolutePath();
       jythonSupport.putSysPath(fpAPILib, 0);
       jythonSupport.setSysPath();
       jythonSupport.addSitePackages();

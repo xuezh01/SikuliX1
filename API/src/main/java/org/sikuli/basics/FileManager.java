@@ -411,7 +411,7 @@ public class FileManager {
   }
 
   public static File createTempDir(String path) {
-    File fTempDir = new File(RunTime.get().fpBaseTempPath, path);
+    File fTempDir = new File(RunTime.getSikulixBaseTempPath(), path);
     log(lvl, "createTempDir:\n%s", fTempDir);
     if (!fTempDir.exists()) {
       fTempDir.mkdirs();
@@ -544,7 +544,7 @@ public class FileManager {
   public static File createTempFile(String suffix, String path) {
     String fPrefix = "sikulitemp-";
     String fSuffix = "." + suffix;
-    File fpath = new File(RunTime.get().fpBaseTempPath);
+    File fpath = new File(RunTime.getSikulixBaseTempPath());
     if (path != null) {
       fpath = new File(path);
     }
@@ -1261,7 +1261,7 @@ public class FileManager {
   }
 
   public static String makeScriptjar(List<String> options) {
-    File fSikulixTemp = new File(RunTime.fSikulixStore, "SikulixTemp");
+    File fSikulixTemp = new File(RunTime.getSikulixStore(), "SikulixTemp");
     FileManager.resetFolder(fSikulixTemp);
     String target = doMakeScriptjar(options, fSikulixTemp);
     deleteFileOrFolder(fSikulixTemp);

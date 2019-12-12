@@ -39,7 +39,7 @@ public class SikulixForJython {
         //helper.terminate(999, "no suitable sikulix...jar on classpath");
         throw new SikuliXception(String.format("fatal: " + "Jython: " + "no suitable sikulix...jar on classpath"));
       }
-      fpSikuliStuff = runTime.fSikulixLib.getAbsolutePath();
+      fpSikuliStuff = RunTime.getSikulixLib().getAbsolutePath();
       if (!helper.hasSysPath(fpSikuliStuff)) {
         helper.log(lvl, "sikuli/*.py not found on current Jython::sys.path");
         helper.addSysPath(fpSikuliStuff);

@@ -162,7 +162,7 @@ public class App {
     Region win;
     try {
       if (Type.EDITOR.equals(appType)) {
-        if (RunTime.get().runningMac) {
+        if (RunTime.runningMac) {
           app = new App(appsMac.get(appType));
           if (app.window() != null) {
             app.focus();
@@ -180,7 +180,7 @@ public class App {
             return win;
           }
         }
-        if (RunTime.get().runningWindows) {
+        if (RunTime.runningWindows) {
           app = new App(appsWindows.get(appType));
           if (app.window() != null) {
             app.focus();
@@ -199,7 +199,7 @@ public class App {
           }
         }
       } else if (Type.BROWSER.equals(appType)) {
-        if (RunTime.get().runningWindows) {
+        if (RunTime.runningWindows) {
           app = new App(appsWindows.get(appType));
           if (app.window() != null) {
             app.focus();
@@ -669,9 +669,9 @@ public class App {
     }
     focus();
     RunTime.pause(1);
-    if (RunTime.get().runningWindows) {
+    if (RunTime.runningWindows) {
       window().type(Key.F4, Key.ALT);
-    } else if (RunTime.get().runningMac) {
+    } else if (RunTime.runningMac) {
       window().type("q", Key.CMD);
     } else {
       window().type("q", Key.CTRL);
@@ -819,7 +819,7 @@ public class App {
    */
   public static int run(String cmd) {
     lastRunResult = RunTime.get().runcmd(cmd);
-    String NL = RunTime.get().runningWindows ? "\r\n" : "\n";
+    String NL = RunTime.runningWindows ? "\r\n" : "\n";
     String[] res = lastRunResult.split(NL);
     try {
       lastRunReturnCode = Integer.parseInt(res[0].trim());

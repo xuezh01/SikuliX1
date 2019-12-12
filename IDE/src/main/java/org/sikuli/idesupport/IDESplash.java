@@ -12,8 +12,8 @@ public class IDESplash extends JFrame {
   JLabel action;
   JLabel step;
 
-  public IDESplash(String version, String jversion) {
-    init(version, jversion);
+  public IDESplash(String[] splashInfo) {
+    init(splashInfo[0], splashInfo[1]);
   }
 
   void init(String version, String jversion) {

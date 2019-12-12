@@ -35,17 +35,21 @@ public class Debug {
   private static boolean initOK = false;
   private static int TRACE_LEVEL = 0;
   private static int DEBUG_LEVEL = 0;
-  private static boolean loggerRedirectSupported = true;
   public static boolean shouldLogJython = false;
   private long _beginTime = 0;
   private String _message;
   private String _title = null;
-  private static PrintStream printout = null;
-  private static PrintStream printoutuser = null;
   private static final DateFormat df =
       DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM);
-  public static String logfile;
 
+  public static String logfile = null;
+  private static PrintStream printout = null;
+  public static String userLogfile = null;
+  private static PrintStream printoutuser = null;
+  private static PrintStream redirectedOut = null;
+  private static PrintStream redirectedErr = null;
+
+  private static boolean loggerRedirectSupported = false;
   private static Object privateLogger = null;
   private static boolean privateLoggerPrefixAll = true;
   private static Method privateLoggerUser = null;
@@ -68,46 +72,91 @@ public class Debug {
   private static final String debugPrefix = "debug";
   private static String privateLoggerDebugPrefix = "";
   private static boolean isJython;
-  private static boolean isJRuby;
-  private static Object scriptRunner = null;
 
   private static boolean searchHighlight = false;
-
-  private static PrintStream redirectedOut = null, redirectedErr = null;
-
 
   public static void init() {
     if (initOK) {
       return;
     }
-    String debug = System.getProperty("sikuli.Debug");
-    if (debug != null) {
-      if ("".equals(debug)) {
-        DEBUG_LEVEL = 0;
-        Settings.DebugLogs = false;
-      } else {
-        try {
-          DEBUG_LEVEL = Integer.parseInt(debug);
-          if (DEBUG_LEVEL > 0) {
-            Settings.DebugLogs = true;
-          } else {
-            Settings.DebugLogs = false;
-          }
-        } catch (NumberFormatException numberFormatException) {
-        }
-      }
+    DEBUG_LEVEL = RunTime.getDebugLevelStart();
+    Settings.DebugLogs = true;
+    if(DEBUG_LEVEL == 0) {
+      Settings.DebugLogs = false;
     }
     if (DEBUG_LEVEL == 9) {
       setDebugLevel(3);
       setWithTimeElapsed(0);
       globalTraceOn();
-    }
-    setLogFile(null);
-    setUserLogFile(null);
-    if (DEBUG_LEVEL > 0) {
+    } else if (DEBUG_LEVEL > 0) {
       setGlobalDebug(DEBUG_LEVEL);
     }
+    setUserLogFile(null);
     initOK = true;
+  }
+
+  /**
+   * @return current debug level
+   */
+  public static int getDebugLevel() {
+    init();
+    return DEBUG_LEVEL;
+  }
+
+  /**
+   * set debug level to default level
+   *
+   * @return default level
+   */
+  public static int setDebugLevel() {
+    setDebugLevel(0);
+    return DEBUG_LEVEL;
+  }
+
+  /**
+   * set debug level to given value
+   *
+   * @param level value
+   */
+  public static void setDebugLevel(int level) {
+    DEBUG_LEVEL = level;
+    if (DEBUG_LEVEL > 0) {
+      Settings.DebugLogs = true;
+    } else {
+      Settings.DebugLogs = false;
+    }
+  }
+
+  public static void setDebugLevel(String level) {
+    try {
+      DEBUG_LEVEL = Integer.parseInt(level);
+      if (DEBUG_LEVEL > 0) {
+        Settings.DebugLogs = true;
+      } else {
+        Settings.DebugLogs = false;
+      }
+    } catch (NumberFormatException e) {
+    }
+  }
+
+  public static void on(int level) {
+    setDebugLevel(level);
+  }
+
+  public static void on(String level) {
+    setDebugLevel(level);
+  }
+
+  public static boolean is(int level) {
+    return getDebugLevel() >= level;
+  }
+
+  public static int is() {
+    return getDebugLevel();
+  }
+
+  public static void off() {
+    setDebugLevel(0);
   }
 
   public static boolean isGlobalDebug() {
@@ -219,15 +268,15 @@ public class Debug {
   private static boolean doSetLogger(Object logger) {
     String className = logger.getClass().getName();
     isJython = className.contains("org.python");
-    isJRuby = className.contains("org.jruby");
-    if (isJRuby) {
+    if (isJython) {
+      loggerRedirectSupported = true;
+      privateLogger = logger;
+      return true;
+    } else {
       logx(3, "Debug: setLogger: given instance's class: %s", className);
-      error("setLogger: not yet supported in JRuby script");
-      loggerRedirectSupported = false;
+      error("setLogger: not yet supported for this script type");
       return false;
     }
-    privateLogger = logger;
-    return true;
   }
 
   /**
@@ -273,31 +322,31 @@ public class Debug {
     }
     try {
       if (type == CallbackType.INFO) {
-        if (!isJython && !isJRuby) {
+        if (!isJython) {
           privateLoggerInfo = privateLogger.getClass().getMethod(mName, new Class[]{String.class});
         }
         privateLoggerInfoName = mName;
         return true;
       } else if (type == CallbackType.ACTION) {
-        if (!isJython && !isJRuby) {
+        if (!isJython) {
           privateLoggerAction = privateLogger.getClass().getMethod(mName, new Class[]{String.class});
         }
         privateLoggerActionName = mName;
         return true;
       } else if (type == CallbackType.ERROR) {
-        if (!isJython && !isJRuby) {
+        if (!isJython) {
           privateLoggerError = privateLogger.getClass().getMethod(mName, new Class[]{String.class});
         }
         privateLoggerErrorName = mName;
         return true;
       } else if (type == CallbackType.DEBUG) {
-        if (!isJython && !isJRuby) {
+        if (!isJython) {
           privateLoggerDebug = privateLogger.getClass().getMethod(mName, new Class[]{String.class});
         }
         privateLoggerDebugName = mName;
         return true;
       } else if (type == CallbackType.USER) {
-        if (!isJython && !isJRuby) {
+        if (!isJython) {
           privateLoggerUser = privateLogger.getClass().getMethod(mName, new Class[]{String.class});
         }
         privateLoggerUserName = mName;
@@ -402,7 +451,7 @@ public class Debug {
   }
 
   public static void out(String msg) {
-    if (redirectedOut != null && DEBUG_LEVEL > 2) {
+    if (redirectedOut != null && getDebugLevel() > 2) {
       if (!beQuiet) {
         redirectedOut.println(msg);
       }
@@ -431,12 +480,12 @@ public class Debug {
         }
       }
       try {
-        logfile = fileName;
         if (printout != null) {
           printout.close();
         }
         printout = new PrintStream(fileName);
         log(3, "Debug: setLogFile: " + fileName);
+        logfile = fileName;
         return true;
       } catch (Exception ex) {
         System.out.printf("[Error] Logfile %s not accessible - check given path", fileName);
@@ -477,12 +526,14 @@ public class Debug {
           fileName = FileManager.slashify(System.getProperty("user.dir"), true) + "UserLog.txt";
         }
       }
+
       try {
         if (printoutuser != null) {
           printoutuser.close();
         }
         printoutuser = new PrintStream(fileName);
         log(3, "Debug: setLogFile: " + fileName);
+        userLogfile = fileName;
         return true;
       } catch (FileNotFoundException ex) {
         System.out.printf("[Error] User logfile %s not accessible - check given path", fileName);
@@ -502,74 +553,6 @@ public class Debug {
     return (printoutuser != null);
   }
 
-  /**
-   * @return current debug level
-   */
-  public static int getDebugLevel() {
-    init();
-    return DEBUG_LEVEL;
-  }
-
-  /**
-   * set debug level to default level
-   *
-   * @return default level
-   */
-  public static int setDebugLevel() {
-    setDebugLevel(0);
-    return DEBUG_LEVEL;
-  }
-
-  /**
-   * set debug level to given value
-   *
-   * @param level value
-   */
-  public static void setDebugLevel(int level) {
-    DEBUG_LEVEL = level;
-    if (DEBUG_LEVEL > 0) {
-      Settings.DebugLogs = true;
-    } else {
-      Settings.DebugLogs = false;
-    }
-  }
-
-  public static void on(int level) {
-    setDebugLevel(level);
-  }
-
-  public static void on(String level) {
-    setDebugLevel(level);
-  }
-
-  public static boolean is(int level) {
-    return DEBUG_LEVEL >= level;
-  }
-
-  public static int is() {
-    return DEBUG_LEVEL;
-  }
-
-  public static void off() {
-    setDebugLevel(0);
-  }
-
-  /**
-   * set debug level to given number value as string (ignored if invalid)
-   *
-   * @param level valid number string
-   */
-  public static void setDebugLevel(String level) {
-    try {
-      DEBUG_LEVEL = Integer.parseInt(level);
-      if (DEBUG_LEVEL > 0) {
-        Settings.DebugLogs = true;
-      } else {
-        Settings.DebugLogs = false;
-      }
-    } catch (NumberFormatException e) {
-    }
-  }
 
   private static boolean doRedirect(CallbackType type, String pre, String message, Object... args) {
     boolean success = false;
@@ -609,8 +592,6 @@ public class Debug {
         }
         if (isJython) {
           success = JythonSupport.get().runLoggerCallback(new Object[]{privateLogger, pln, msg});
-        } else if (isJRuby) {
-          success = false;
         } else {
           try {
             plf.invoke(privateLogger,
@@ -836,7 +817,7 @@ public class Debug {
     }
     String sout = "";
     String stime = "";
-    if (level <= DEBUG_LEVEL) {
+    if (level <= getDebugLevel()) {
       if (level == 3 || level == -999) {
         if (message.startsWith("TRACE: ")) {
           if (!Settings.TraceLogs) {

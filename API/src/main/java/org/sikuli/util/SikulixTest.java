@@ -262,7 +262,7 @@ public class SikulixTest {
       browser = "safari";
       keyMeta = Key.CMD;
     }
-    ImagePath.setBundlePath(new File(runTime.fWorkDir, showBase).getAbsolutePath());
+    ImagePath.setBundlePath(new File(RunTime.getWorkDir(), showBase).getAbsolutePath());
     Match match = null;
     String testImage = "findBase";
 
@@ -527,7 +527,7 @@ public class SikulixTest {
       String chrome = "google chrome";
       String firefox = "firefox";
       String notepad = "brackets";
-      if (runTime.runningWindows) {
+      if (RunTime.runningWindows) {
         chrome = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe";
         firefox = "C:\\Program Files\\Mozilla Firefox\\firefox.exe";
         notepad = "C:\\Program Files\\Notepad++\\notepad++.exe";

@@ -499,7 +499,7 @@ public class JythonSupport implements IRunnerSupport {
 
   public void addSitePackages() {
     synchronized (sysPath) {
-      File fLibFolder = runTime.fSikulixLib;
+      File fLibFolder = RunTime.getSikulixLib();
       File fSitePackages = new File(fLibFolder, "site-packages");
       if (fSitePackages.exists()) {
         addSysPath(fSitePackages);
@@ -700,13 +700,13 @@ public class JythonSupport implements IRunnerSupport {
   //<editor-fold desc="18 RobotFramework support">
   public boolean prepareRobot() {
     if (RunTime.isRunningFromJar()) {
-      File fLibRobot = new File(runTime.fSikulixLib, "robot");
+      File fLibRobot = new File(RunTime.getSikulixLib(), "robot");
       if (!fLibRobot.exists()) {
         log(-1, "prepareRobot: not available: %s", fLibRobot);
         return false;
       }
-      if (!hasSysPath(runTime.fSikulixLib.getAbsolutePath())) {
-        insertSysPath(runTime.fSikulixLib);
+      if (!hasSysPath(RunTime.getSikulixLib().getAbsolutePath())) {
+        insertSysPath(RunTime.getSikulixLib());
       }
     }
     if (!hasSysPath(new File(Settings.BundlePath).getParent())) {
@@ -992,9 +992,9 @@ public class JythonSupport implements IRunnerSupport {
 
       }
       if (fJar == null) {
-        fJar = new File(runTime.fSikulixExtensions, fpJar);
+        fJar = new File(RunTime.getSikulixExtensions(), fpJar);
         if (!fJar.exists()) { // in extensions
-          fJar = new File(runTime.fSikulixLib, fpJar);
+          fJar = new File(RunTime.getSikulixLib(), fpJar);
           if (!fJar.exists()) { // in Lib folder
             fJar = null;
           }

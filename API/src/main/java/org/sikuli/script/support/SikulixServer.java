@@ -136,7 +136,7 @@ public class SikulixServer {
 
   private static void makeGroups(String option) {
     File folder;
-    groups.put(DEFAULT_GROUP, RunTime.get().fWorkDir);
+    groups.put(DEFAULT_GROUP, RunTime.getWorkDir());
     if (null != (folder = RunTime.asFolder(option))) {
       groups.put(DEFAULT_GROUP, folder);
       return;
@@ -239,7 +239,7 @@ public class SikulixServer {
 
     // start the server
     String theServer = String.format("%s %d", theIP, port);
-    isRunning = new File(RunTime.fSikulixStore, "SikulixServer.txt");
+    isRunning = new File(RunTime.getSikulixStore(), "SikulixServer.txt");
     try {
       try {
         isRunning.createNewFile();
@@ -556,7 +556,7 @@ public class SikulixServer {
     }
 
     private Optional<ObjectNode> getScriptInfo(String groupName, String scriptName) {
-      RunTime.get().fWorkDir = groups.get(groupName);
+      RunTime.setWorkDir(groups.get(groupName));
       String[] scripts = RunTime.resolveRelativeFiles(new String[]{scriptName});
       if (!scripts[0].startsWith("?")) {
         ObjectNode result = getObjectMapper().createObjectNode();
@@ -942,7 +942,7 @@ public class SikulixServer {
     }
 
     public void runScript() {
-      RunTime.get().fWorkDir = groups.get(groupName);
+      RunTime.setWorkDir(groups.get(groupName));
       String[] scripts = RunTime.resolveRelativeFiles(new String[]{scriptName});
       RunTime.setUserArgs(scriptArgs);
       startDate = new Date();

@@ -83,7 +83,7 @@ public class RobotRunner extends JythonRunner {
                     + "outputdir=\"%s\")", fRobot, fRobotWork);
     File fReport = new File(fRobotWork, "report.html");
     String urlReport = fReport.getAbsolutePath();
-    if (RunTime.get().runningWindows) {
+    if (RunTime.runningWindows) {
       robotCmd = robotCmd.replaceAll("\\\\", "\\\\\\\\");
       urlReport = "/" + urlReport.replaceAll("\\\\", "/");
     }

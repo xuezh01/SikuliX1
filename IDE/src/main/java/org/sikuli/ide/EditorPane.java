@@ -489,7 +489,7 @@ public class EditorPane extends JTextPane {
       String path = matcher.group(1);
       log(3, "checkSource: found setBundlePath: %s", path);
       File newBundleFolder = new File(path.replace("\\\\", "\\"));
-      if (RunTime.get().runningWindows && (newBundleFolder.getPath().startsWith("\\") || newBundleFolder.getPath().startsWith("/"))) {
+      if (RunTime.runningWindows && (newBundleFolder.getPath().startsWith("\\") || newBundleFolder.getPath().startsWith("/"))) {
         try {
           newBundleFolder = new File(new File("\\").getCanonicalPath(), newBundleFolder.getPath().substring(1));
         } catch (IOException e) {

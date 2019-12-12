@@ -65,7 +65,7 @@ public class SikulixIDE extends JFrame {
     get();
 
     if (Debug.getDebugLevel() < 3) {
-      ideSplash = new IDESplash(runTime.SXVersion, "" + runTime.javaVersion);
+      ideSplash = new IDESplash(RunTime.getSplashInfo());
     }
 
     log(3, "running with Locale: %s", SikuliIDEI18N.getLocaleShow());
@@ -174,7 +174,7 @@ public class SikulixIDE extends JFrame {
 
   @Override
   public void setTitle(String title) {
-    super.setTitle(runTime.SXVersionIDE + " - " + title);
+    super.setTitle(RunTime.getVersionIDE() + " - " + title);
   }
 
   static ImageIcon getIconResource(String name) {
@@ -600,7 +600,7 @@ public class SikulixIDE extends JFrame {
     editorPane.setIsBundle();
     IScriptRunner runner = editorPane.getRunner();
     String defaultExtension = runner.getDefaultExtension();
-    File tempFile = FileManager.createTempFile(defaultExtension, new File(RunTime.get().fpBaseTempPath,
+    File tempFile = FileManager.createTempFile(defaultExtension, new File(RunTime.getSikulixBaseTempPath(),
         "SikulixIDETempTab" + editorPane.getID()).getAbsolutePath());
     if (null == tempFile) {
       //TODO newTabEmpty: temp problem: how should caller react?
@@ -809,17 +809,7 @@ public class SikulixIDE extends JFrame {
 
   public void showAbout() {
     //TODO full featured About
-    String info = "You are running " + runTime.SXVersionIDE
-        + "\nUsing Java version " + runTime.sysPropJRTVersion
-        + "\n\nNeed help? -> start with Help Menu\n\n"
-        + "*** Have fun ;-)\n\n"
-        + "Tsung-Hsiang Chang aka vgod\n"
-        + "Tom Yeh\n"
-        + "Raimund Hocke aka RaiMan";
-    if (!runTime.SXBuildNumber.isEmpty()) {
-      info += String.format("\n\nBuild#: %s (%s)", runTime.SXBuildNumber, RunTime.SXBuild);
-    }
-    JOptionPane.showMessageDialog(this, info,
+    JOptionPane.showMessageDialog(this, RunTime.getAboutInfo(),
         "Sikuli About", JOptionPane.PLAIN_MESSAGE);
   }
 
@@ -1756,7 +1746,7 @@ public class SikulixIDE extends JFrame {
       locStamp += token.length();
       String latestBuildFull = pageDownload.substring(locStamp, locStamp + 16);
       String latestBuild = latestBuildFull.replaceAll("-", "").replace("_", "").replace(":", "");
-      String actualBuild = runTime.SXBuildStamp;
+      String actualBuild = RunTime.getBuildStamp();
       try {
         long lb = Long.parseLong(latestBuild);
         long ab = Long.parseLong(actualBuild);
@@ -1871,7 +1861,7 @@ public class SikulixIDE extends JFrame {
             _I("msgUpdate") + ": " + newBuildStamp :
             _I("msgNoUpdate")) : _I("msgUpdateError");
         JOptionPane.showMessageDialog(null, updMsg,
-            runTime.SXVersionIDE, msgType);
+            RunTime.getVersionIDE(), msgType);
       }
     }
 

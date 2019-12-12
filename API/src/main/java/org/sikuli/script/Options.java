@@ -131,7 +131,7 @@ public class Options {
         log(-1, "loadOptions: not exists: %s", fOptions);
       }
     } else {
-      for (File aFile : new File[]{RunTime.fUserHome, RunTime.fWorkDir, RunTime.fSikulixStore}) {
+      for (File aFile : new File[]{RunTime.getUserHome(), RunTime.getWorkDir(), RunTime.getSikulixStore()}) {
         fOptions = new File(aFile, fpOptions);
         if (fOptions.exists()) {
           break;
@@ -154,7 +154,7 @@ public class Options {
         options = null;
       }
     } else {
-      setOption(propOptionsFile, new File(RunTime.fSikulixStore, fpOptions).getAbsolutePath());
+      setOption(propOptionsFile, new File(RunTime.getSikulixStore(), fpOptions).getAbsolutePath());
     }
   }
 
@@ -181,7 +181,7 @@ public class Options {
   public boolean saveOpts(String fpOptions) {
     File fOptions = new File(fpOptions);
     if (!fOptions.isAbsolute()) {
-      fOptions = new File(runtime.fWorkDir, fpOptions);
+      fOptions = new File(RunTime.getWorkDir(), fpOptions);
     }
     try {
       setOption(propOptionsFile, fOptions.getAbsolutePath());

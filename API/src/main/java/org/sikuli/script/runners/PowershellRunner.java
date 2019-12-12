@@ -52,7 +52,7 @@ public class PowershellRunner extends AbstractLocalFileScriptRunner {
 
   @Override
   public boolean isSupported() {
-    return RunTime.get().runningWindows;
+    return RunTime.runningWindows;
   }
 
   @Override

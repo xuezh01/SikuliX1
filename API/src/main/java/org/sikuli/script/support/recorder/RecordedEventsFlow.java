@@ -73,7 +73,7 @@ public class RecordedEventsFlow {
   StringBuilder typedText = new StringBuilder();
 
   static {
-    RunTime.loadLibrary(RunTime.libOpenCV);
+    RunTime.loadLibrary(RunTime.getOpencvLibName());
   }
 
   /**

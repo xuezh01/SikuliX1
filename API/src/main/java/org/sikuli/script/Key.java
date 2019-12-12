@@ -644,7 +644,7 @@ public class Key {
 //        return tk.getLockingKeyState(KeyEvent.VK_SCROLL_LOCK);
 //        return tk.getLockingKeyState(KeyEvent.VK_CAPS_LOCK);
 //        return tk.getLockingKeyState(KeyEvent.VK_NUM_LOCK);
-    if (!RunTime.get().runningWindows) {
+    if (!RunTime.runningWindows) {
       return false;
     }
     int state = 0;

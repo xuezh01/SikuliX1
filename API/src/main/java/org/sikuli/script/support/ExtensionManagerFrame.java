@@ -36,7 +36,7 @@ public class ExtensionManagerFrame extends JFrame {
 
   private ExtensionManagerFrame() {
     super();
-    fExtensions = RunTime.get().fSikulixExtensions.listFiles();
+    fExtensions = RunTime.getSikulixExtensions().listFiles();
 //TODO show and select extensions
 //    init();
   }

@@ -116,9 +116,9 @@ paste = function() {
 };
 
 closeApp = function() {
-	if (RunTime.get().runningMac) {
+	if (RunTime.runningWindows) {
 		write("#M.q");
-	} else if (RunTime.get().runningWindows) {
+	} else if (RunTime.runningWindows) {
 		write("#A.#F4.");
 	} else {
 		write("#C.q");
@@ -126,7 +126,7 @@ closeApp = function() {
 };
 
 closeBrowserWindow = function() {
-	if (RunTime.get().runningMac) {
+	if (RunTime.runningWindows) {
 		write("#M.w");
 	} else {
 		write("#C.w");

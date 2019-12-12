@@ -55,7 +55,7 @@ public class AppleScriptRunner extends AbstractLocalFileScriptRunner {
 
   @Override
   public boolean isSupported() {
-    return RunTime.get().runningMac;
+    return RunTime.runningMac;
   }
 
   @Override

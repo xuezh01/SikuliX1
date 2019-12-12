@@ -11,8 +11,21 @@ import javax.swing.*;
 import javax.swing.event.*;
 import org.sikuli.basics.Debug;
 import org.sikuli.basics.FileManager;
+import org.sikuli.script.SikuliXception;
 
 public class AutoUpdater {
+//TODO version info from RunTime
+
+//  String[] version = sikulixVersion.replace("-SNAPSHOT", "").split("\\.");
+//      if (version.length != 3) {
+//    throw new SikuliXception(String.format("Settings: wrong version format: %s", sikulixVersion));
+//  }
+//  public static int SikuliVersionMajor;
+//  public static int SikuliVersionMinor;
+//  public static int SikuliVersionSub;
+//  SikuliVersionMajor = Integer.decode(version[0]);
+//  SikuliVersionMinor = Integer.decode(version[1]);
+//  SikuliVersionSub = Integer.decode(version[2]);
 
   private String details, bdetails;
   private String server = "";
@@ -78,9 +91,10 @@ public class AutoUpdater {
     for (String s : ServerList) {
       try {
         if (checkUpdate(s)) {
-          smajor = SikulixIDE.runTime.SikuliVersionMajor;
-          sminor = SikulixIDE.runTime.SikuliVersionMinor;
-          ssub = SikulixIDE.runTime.SikuliVersionSub;
+          //TODO checkUpdate
+          smajor = 0;//SikulixIDE.runTime.SikuliVersionMajor;
+          sminor = 0;//SikulixIDE.runTime.SikuliVersionMinor;
+          ssub = 0;// SikulixIDE.runTime.SikuliVersionSub;
           if (sbeta > 0) {
             if (smajor == major && sminor == minor) {
               available = FINAL;

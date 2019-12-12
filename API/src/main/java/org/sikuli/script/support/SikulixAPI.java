@@ -18,8 +18,8 @@ public class SikulixAPI {
     RunTime.afterStart("API", args);
 
     if (args.length == 2 && "test".equals(args[1])) {
-      String version = RunTime.get().getVersion();
-      File lastSession = new File(RunTime.fSikulixStore, "LastAPIJavaScript.js");
+      String version = RunTime.getSikulixVersion();
+      File lastSession = new File(RunTime.getSikulixStore(), "LastAPIJavaScript.js");
       String runSomeJS = "";
       if (lastSession.exists()) {
         runSomeJS = FileManager.readFileToString(lastSession);
