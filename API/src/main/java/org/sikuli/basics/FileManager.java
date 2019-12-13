@@ -1270,7 +1270,6 @@ public class FileManager {
 
   private static String doMakeScriptjar(List<String> options, File fSikulixTemp) {
     boolean makingScriptjarPlain = false;
-    RunTime runTime = RunTime.get();
 //    File fSikulixapi = new File(runTime.fSikulixDownloadsGeneric, runTime.sSikulixapi);
 //    File fSikulixjython = new File(runTime.fSikulixDownloadsGeneric, new File(runTime.SikuliJythonMaven).getName());
     if (options.size() > 0 && "plain".equals(options.get(0))) {

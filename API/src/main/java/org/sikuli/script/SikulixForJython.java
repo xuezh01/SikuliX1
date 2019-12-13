@@ -27,15 +27,14 @@ public class SikulixForJython {
   static void staticInit() {
     JythonSupport helper = JythonSupport.get();
     helper.log(lvl, "SikulixForJython: init: starting");
-    RunTime runTime = RunTime.get();
     String sikuliStuff = "sikuli/Sikuli";
     File fSikuliStuff = helper.existsSysPathModule(sikuliStuff);
     String libSikuli = "/Lib/" + sikuliStuff + ".py";
     String fpSikuliStuff;
     if (null == fSikuliStuff) {
-      URL uSikuliStuff = runTime.resourceLocation(libSikuli);
+      URL uSikuliStuff = RunTime.resourceLocation(libSikuli);
       if (uSikuliStuff == null) {
-        runTime.dumpClassPath();
+        RunTime.dumpClassPath();
         //helper.terminate(999, "no suitable sikulix...jar on classpath");
         throw new SikuliXception(String.format("fatal: " + "Jython: " + "no suitable sikulix...jar on classpath"));
       }

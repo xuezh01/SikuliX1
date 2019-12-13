@@ -27,12 +27,9 @@ public abstract class HotkeyManager {
   private static int HotkeyTypeAbortKey;
   private static int HotkeyTypeAbortMod;
 
-  private static RunTime runTime;
-
   public static HotkeyManager getInstance() {
     if (_instance == null) {
-      runTime = RunTime.get();
-      if (runTime.runningWindows || runTime.runningMac) {
+      if (RunTime.runningWindows || RunTime.runningMac) {
         _instance = new GenericHotkeyManager();
       } else {
         String cls = getOSHotkeyManagerClass();
@@ -85,11 +82,11 @@ public abstract class HotkeyManager {
 
   private static String getOSHotkeyManagerClass() {
     String pkg = "org.sikuli.basics.";
-    if (runTime.runningMac) {
+    if (RunTime.runningMac) {
       return pkg + "MacHotkeyManager";
-    } else if (runTime.runningWindows) {
+    } else if (RunTime.runningWindows) {
       return pkg + "WindowsHotkeyManager";
-    } else if (runTime.runningLinux) {
+    } else if (RunTime.runningLinux) {
       return pkg + "LinuxHotkeyManager";
     } else {
       Debug.error("HotkeyManager: not supported on your OS.");

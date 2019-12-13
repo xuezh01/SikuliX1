@@ -46,19 +46,16 @@ public class SikulixIDE extends JFrame {
     Debug.logx(level, me + message, args);
   }
 
-  static RunTime runTime;
-
   static final java.awt.Image ICON_IMAGE = Toolkit.getDefaultToolkit().createImage(
       SikulixIDE.class.getResource("/icons/sikulix.png"));
 
   public static void main(String[] args) {
 
-    RunTime.afterStart(RunTime.Type.IDE, args);
+    RunTime.afterStart("IDE", args);
 
     if ("m".equals(System.getProperty("os.name").substring(0, 1).toLowerCase())) {
       prepareMacUI();
     }
-    runTime = RunTime.get("IDE");
 
     IDETaskbarSupport.setTaksIcon(ICON_IMAGE);
 
@@ -237,7 +234,7 @@ public class SikulixIDE extends JFrame {
     Debug.log(3, "IDE: creating tabbed editor");
     initTabs();
     Debug.log(3, "IDE: creating message area");
-    if (runTime.isTesting()) {
+    if (RunTime.isTesting()) {
       System.setProperty("sikuli.console", "false");
     }
     initMessageArea();
@@ -287,7 +284,7 @@ public class SikulixIDE extends JFrame {
     tabs.setSelectedIndex(0);
 
     String j9Message = "";
-    if (runTime.isJava9()) {
+    if (RunTime.isJava9()) {
       j9Message = "*** Running on Java 9+";
     }
     Debug.log(lvl, "IDE startup: %4.1f seconds %s", (new Date().getTime() - RunTime.getElapsedStart()) / 1000.0, j9Message);
@@ -823,7 +820,7 @@ public class SikulixIDE extends JFrame {
   void openSpecial() {
     log(lvl, "Open Special requested");
     Map<String, String> specialFiles = new Hashtable<>();
-    specialFiles.put("1 SikuliX Global Options", runTime.options().getOptionsFile());
+    specialFiles.put("1 SikuliX Global Options", RunTime.options().getOptionsFile());
     File extensionsFile = ExtensionManager.getExtensionsFile();
     specialFiles.put("2 SikuliX Extensions Options", extensionsFile.getAbsolutePath());
     File sitesTxt = ExtensionManager.getSitesTxt();
@@ -1627,7 +1624,7 @@ public class SikulixIDE extends JFrame {
     private long lastWhen = -1;
 
     public void toggleShowThumbs(ActionEvent ae) {
-      if (runTime.runningMac) {
+      if (RunTime.runningMac) {
         if (lastWhen < 0) {
           lastWhen = new Date().getTime();
         } else {

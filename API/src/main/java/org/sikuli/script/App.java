@@ -818,7 +818,7 @@ public class App {
    * @return the final returncode of the command execution
    */
   public static int run(String cmd) {
-    lastRunResult = RunTime.get().runcmd(cmd);
+    lastRunResult = RunTime.runcmd(cmd);
     String NL = RunTime.runningWindows ? "\r\n" : "\n";
     String[] res = lastRunResult.split(NL);
     try {
@@ -833,7 +833,7 @@ public class App {
         lastRunStderr += res[n] + NL;
         continue;
       }
-      if (RunTime.get().runCmdError.equals(res[n])) {
+      if (RunTime.isCmdError(res[n])) {
         isError = true;
         continue;
       }

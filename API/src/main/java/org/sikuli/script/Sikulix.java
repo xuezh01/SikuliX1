@@ -17,7 +17,7 @@ import java.io.File;
 public class Sikulix {
 
   public static void main(String[] args) throws FindFailed {
-    RunTime.start(RunTime.Type.API, args);
+    RunTime.start("API", args);
     System.setProperty("sikuli.API_should_run", "develop");
     SikulixAPI.main(args);
   }
@@ -62,7 +62,7 @@ public class Sikulix {
       return null;
     }
     Rectangle rect = Screen.getMonitorBounds();
-    if (RunTime.isRunningIDE) {
+    if (RunTime.isRunningIDE()) {
       //TODO should be IDE window
     }
     return new Point((int) rect.getCenterX(), (int) rect.getCenterY());
@@ -353,7 +353,7 @@ public class Sikulix {
   }
 
   public static String run(String[] cmd) {
-    return RunTime.get().runcmd(cmd);
+    return RunTime.runcmd(cmd);
   }
   //</editor-fold>
 

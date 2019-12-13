@@ -413,6 +413,15 @@ public class RunTime {
     evalAppDataFolder();
   }
 
+  private static RunTime runTime = null;
+
+  public static synchronized RunTime get() {
+    if (runTime == null) {
+      runTime = new RunTime();
+    }
+    return runTime;
+  }
+
   private static void init(String type) {
     log(3, "global init: entering");
     runType = type;
@@ -531,6 +540,22 @@ public class RunTime {
     log(3, "global init: leaving");
   }
 
+  private static void initOptions(String type) {
+    float forever = Settings.FOREVER; // to force Settings initialization
+    sxOptions = Options.init(runTime);
+    optTesting = sxOptions.isOption("testing", false);
+    if (optTesting) {
+      Debug.info("Options: testing = on");
+    }
+    int optDebugLevel = optTesting ? Debug.getDebugLevel() : sxOptions.getOptionInteger("Debug.level", -1);
+    if (optDebugLevel > Debug.getDebugLevel()) {
+      Debug.info("Options: Debug.level = %d", optDebugLevel);
+      Debug.on(optDebugLevel);
+    }
+    runTime.initSikulixOptions();
+
+  }
+
   public static boolean isIDE() {
     return runningAsIDE;
   }
@@ -539,7 +564,7 @@ public class RunTime {
     return System.getProperty("sikuli.Develop") != null;
   }
 
-  public boolean isTesting() {
+  public static boolean isTesting() {
     return optTesting;
   }
 
@@ -549,40 +574,6 @@ public class RunTime {
 
   public static boolean isSandbox() {
     return sxSandbox != null;
-  }
-
-  private static RunTime runTime = null;
-
-  public static synchronized RunTime get() {
-    if (runTime == null) {
-      return get("API");
-    }
-    return runTime;
-  }
-
-  public static synchronized RunTime get(String type) {
-    if (runTime != null) {
-      return runTime;
-    }
-    runTime = new RunTime();
-
-    //<editor-fold desc="04 options">
-    float forever = Settings.FOREVER; // to force Settings initialization
-    sxOptions = Options.init(runTime);
-    optTesting = sxOptions.isOption("testing", false);
-    if (optTesting) {
-      Debug.info("Options: testing = on");
-    }
-
-    int optDebugLevel = optTesting ? Debug.getDebugLevel() : sxOptions.getOptionInteger("Debug.level", -1);
-    if (optDebugLevel > Debug.getDebugLevel()) {
-      Debug.info("Options: Debug.level = %d", optDebugLevel);
-      Debug.on(optDebugLevel);
-    }
-    runTime.initSikulixOptions();
-    //</editor-fold>
-
-    return runTime;
   }
 
   private static RobotDesktop cleanupRobot = null;
@@ -596,64 +587,60 @@ public class RunTime {
     log(4, "initAPI: leaving");
   }
 
-  public static boolean isRunningIDE = false;
+  public static boolean isRunningIDE() {
+    return runningIDE;
+  }
+
+  private static boolean runningIDE = false;
 
   private static void initIDEbefore() {
     log(4, "initIDEbefore: entering");
-    isRunningIDE = true;
+    runningIDE = true;
     log(4, "initIDEbefore: leaving");
   }
 
   private static void initIDEafter() {
     log(4, "initIDEafter: entering");
-    try {
-      cIDE = Class.forName("org.sikuli.ide.SikulixIDE");
-      mHide = cIDE.getMethod("hideIDE", new Class[0]);
-      mShow = cIDE.getMethod("showIDE", new Class[0]);
-    } catch (Exception ex) {
-      log(-1, "SikulixIDE: reflection: %s", ex.getMessage());
-    }
+//    try {
+//      cIDE = Class.forName("org.sikuli.ide.SikulixIDE");
+//      mHide = cIDE.getMethod("hideIDE", new Class[0]);
+//      mShow = cIDE.getMethod("showIDE", new Class[0]);
+//    } catch (Exception ex) {
+//      log(-1, "SikulixIDE: reflection: %s", ex.getMessage());
+//    }
     log(4, "initIDEafter: leaving");
   }
 
-  static Class<?> cIDE = null;
-  static Method mHide = null;
-  static Method mShow = null;
-
-  public void hideIDE() {
-    if (null != cIDE) {
-      try {
-        mHide.invoke(null, new Object[0]);
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      }
-    }
-  }
-
-  public void showIDE() {
-    if (null != cIDE) {
-      try {
-        mShow.invoke(null, new Object[0]);
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      }
-    }
-  }
+//  private static Class<?> cIDE = null;
+//  private static Method mHide = null;
+//  private static Method mShow = null;
+//
+//  public static void hideIDE() {
+//    if (null != cIDE) {
+//      try {
+//        mHide.invoke(null, new Object[0]);
+//      } catch (IllegalAccessException e) {
+//        e.printStackTrace();
+//      } catch (InvocationTargetException e) {
+//        e.printStackTrace();
+//      }
+//    }
+//  }
+//
+//  public static void showIDE() {
+//    if (null != cIDE) {
+//      try {
+//        mShow.invoke(null, new Object[0]);
+//      } catch (IllegalAccessException e) {
+//        e.printStackTrace();
+//      } catch (InvocationTargetException e) {
+//        e.printStackTrace();
+//      }
+//    }
+//  }
   //</editor-fold>
 
   //<editor-fold desc="05 startup">
-  public static void startIDE(String[] args) {
-    start("IDE", args);
-  }
-
-  public static void startAPI(String[] args) {
-    start("API", args);
-  }
-
   public static void start(String type, String[] args) {
 
     evalArgsStart(args);
@@ -675,7 +662,7 @@ public class RunTime {
           for (String sys : new String[]{"mac", "windows", "linux"}) {
             Sikulix.print("******* %s", sys);
             String sxcontentFolder = String.format("sikulixlibs/%s/libs64", sys);
-            List<String> sikulixlibs = RunTime.get().getResourceList(sxcontentFolder);
+            List<String> sikulixlibs = getResourceList(sxcontentFolder);
             String sxcontent = "";
             for (String lib : sikulixlibs) {
               if (lib.equals("sikulixcontent")) {
@@ -953,12 +940,12 @@ java.desktop/sun.awt=ALL-UNNAMED
     }
   }
 
-  public void installStopHotkeyPythonServer() {
+  public static void installStopHotkeyPythonServer() {
     HotkeyManager.getInstance().addHotkey("Abort", new HotkeyListener() {
       @Override
       public void hotkeyPressed(HotkeyEvent e) {
         Debug.log(3, "Stop HotKey was pressed");
-        if (RunTime.get().shouldRunPythonServer()) {
+        if (RunTime.shouldRunPythonServer()) {
           stopPythonServer();
           terminate();
         }
@@ -1257,7 +1244,7 @@ java.desktop/sun.awt=ALL-UNNAMED
   void initSikulixOptions() {
   }
 
-  public Options options() {
+  public static Options options() {
     return sxOptions;
   }
 
@@ -1421,9 +1408,9 @@ java.desktop/sun.awt=ALL-UNNAMED
     return true;
   }
 
-  private boolean didExport = false;
+  private static boolean didExport = false;
 
-  public boolean shouldExport() {
+  public static boolean shouldExport() {
     return didExport;
   }
 
@@ -1964,7 +1951,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return out;
   }
 
-  public URL resourceLocation(String folderOrFile) {
+  public static URL resourceLocation(String folderOrFile) {
     log(lvl, "resourceLocation: (%s) %s", runTimeClass, folderOrFile);
     if (!folderOrFile.startsWith("/")) {
       folderOrFile = "/" + folderOrFile;
@@ -2419,7 +2406,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     out.flush();
   }
 
-  private byte[] copy(InputStream inputStream) throws IOException {
+  private static byte[] copy(InputStream inputStream) throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     byte[] buffer = new byte[1024];
     int length = 0;
@@ -2446,15 +2433,14 @@ java.desktop/sun.awt=ALL-UNNAMED
     }
 
   }
-
   //</editor-fold>
 
   //<editor-fold desc="16 get resources NEW">
-  public List<String> getResourceList(String res) {
+  public static List<String> getResourceList(String res) {
     return getResourceList(res, runTimeClass);
   }
 
-  public List<String> getResourceList(String res, Class classReference) {
+  public static List<String> getResourceList(String res, Class classReference) {
     List<String> resList = new ArrayList<>();
     CodeSource codeSource = classReference.getProtectionDomain().getCodeSource();
     if (codeSource == null) {
@@ -2663,6 +2649,10 @@ java.desktop/sun.awt=ALL-UNNAMED
   public final static String runCmdError = "*****error*****";
   public static String NL = "\n";
 
+  public static boolean isCmdError(String result) {
+    return runCmdError.equals(result);
+  }
+
   public static String arrayToQuotedString(String[] args) {
     String ret = "";
     for (String s : args) {
@@ -2681,7 +2671,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @return the output produced by the command (sysout [+ "*** error ***" + syserr] if the syserr part is present, the
    * command might have failed
    */
-  public String runcmd(String cmd) {
+  public static String runcmd(String cmd) {
     return runcmd(new String[]{cmd});
   }
 
@@ -2693,7 +2683,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @return the output produced by the command (sysout [+ "*** error ***" + syserr] if the syserr part is present, the
    * command might have failed
    */
-  public String runcmd(String args[]) {
+  public static String runcmd(String args[]) {
     if (args.length == 0) {
       return "";
     }
@@ -2785,11 +2775,11 @@ java.desktop/sun.awt=ALL-UNNAMED
     return String.format("%d%s%s", retVal, NL, result);
   }
 
-  public String getLastCommandResult() {
+  public static String getLastCommandResult() {
     return lastResult;
   }
 
-  private String lastResult = "";
+  private static String lastResult = "";
 //</editor-fold>
 
   //<editor-fold defaultstate="collapsed" desc="22 system enviroment">

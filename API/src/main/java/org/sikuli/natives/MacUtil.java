@@ -21,7 +21,7 @@ public class MacUtil implements OSUtil {
 
   @Override
   public void checkFeatureAvailability() {
-    RunTime.get().loadLibrary("MacUtil");
+    RunTime.loadLibrary("MacUtil");
   }
 
   /*
@@ -97,7 +97,7 @@ public class MacUtil implements OSUtil {
       theCmd = cmd.replace("#LINE#", cmdLinePID);
       theCmd = theCmd.replaceAll("#PID#", "" + pid);
       int retVal = Runner.getRunner(AppleScriptRunner.class).evalScript(theCmd, SILENT_OPTIONS);
-      String result = RunTime.get().getLastCommandResult().trim();
+      String result = RunTime.getLastCommandResult().trim();
       if (retVal > -1) {
         if (!result.contains("NotFound")) {
           String[] parts = result.split(",");
@@ -231,7 +231,7 @@ public class MacUtil implements OSUtil {
     List<Region> windows = new ArrayList<>();
     String theCmd = cmdGetWindows.replace("#APP#", app.getName());
     int retVal = Runner.getRunner(AppleScriptRunner.class).evalScript(theCmd, SILENT_OPTIONS);
-    String result = RunTime.get().getLastCommandResult().trim();
+    String result = RunTime.getLastCommandResult().trim();
     if (retVal > -1 && !result.isEmpty()) {
       Debug.trace("getWindows: %s", result);
       String[] parts = result.split(",");
@@ -272,8 +272,8 @@ public class MacUtil implements OSUtil {
             "end repeat\n" +
             "end tell\n" +
             "resultlist";
-    int retVal = Runner.getRunner(AppleScriptRunner.class).evalScript(cmd, SILENT_OPTIONS);
-    String result = RunTime.get().getLastCommandResult().trim();
+    Runner.getRunner(AppleScriptRunner.class).evalScript(cmd, SILENT_OPTIONS);
+    String result = RunTime.getLastCommandResult().trim();
     String[] processes = result.split(", ###");
     List<App> appList = new ArrayList<>();
     int pid = 0;

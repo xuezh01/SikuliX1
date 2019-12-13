@@ -156,7 +156,7 @@ public class Settings {
   }
 
   public static String getDataPath() {
-    return RunTime.get().fSikulixAppFolder.getAbsolutePath();
+    return RunTime.getAppDataPath();
   }
 
   public static final int ISWINDOWS = 0;
