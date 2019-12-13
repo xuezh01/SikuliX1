@@ -1061,7 +1061,7 @@ public class EditorPane extends JTextPane {
     return String.format("Region(%d,%d,%d,%d)", x, y, w, h);
   }
 
-  public String getPatternString(String ifn, float sim, Location off, Image img, float resizeFactor, String mask) {
+  public String getPatternString(String ifn, double sim, Location off, Image img, float resizeFactor, String mask) {
 //TODO ifn really needed??
     if (ifn == null) {
       return "\"" + EditorPatternLabel.CAPTURE + "\"";

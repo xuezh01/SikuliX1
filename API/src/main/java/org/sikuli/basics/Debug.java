@@ -585,7 +585,7 @@ public class Debug {
       }
       if (!pln.isEmpty()) {
         String msg = null;
-        if (args == null) {
+        if (args == null || args.length == 0) {
           msg = prefix + message;
         } else {
           msg = String.format(prefix + message, args);
@@ -793,7 +793,12 @@ public class Debug {
   }
 
   public static String logp(String msg, Object... args) {
-    String out = String.format(msg, args);
+    String out;
+    if(args != null && args.length > 0) {
+      out = String.format(msg, args);
+    } else {
+      out = msg;
+    }
     if (!beQuiet) {
       System.out.println(out);
     }
@@ -847,7 +852,11 @@ public class Debug {
       if (!prefix.isEmpty()) {
         prefix = "[" + prefix + stime + "] ";
       }
-      sout = String.format(message, args);
+      if(args != null && args.length > 0) {
+        sout = String.format(message, args);
+      } else {
+        sout = message;
+      }
       boolean isRedirected = false;
       if (level > -99) {
         isRedirected = doRedirect(CallbackType.DEBUG, prefix, sout);

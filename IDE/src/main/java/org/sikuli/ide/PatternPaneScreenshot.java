@@ -12,32 +12,41 @@ import javax.swing.event.*;
 import org.sikuli.script.Finder;
 import org.sikuli.script.Match;
 import org.sikuli.script.Pattern;
-import org.sikuli.script.Region;
 import org.sikuli.script.ScreenImage;
-import org.sikuli.script.support.ScreenUnion;
 import org.sikuli.basics.Debug;
 
+@SuppressWarnings("serial")
 class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentListener {
   public static final int BOTTOM_MARGIN = 200;
   private static final String me = "PatternPaneScreenshot: ";
   static int DEFAULT_H;
   static int MAX_NUM_MATCHING = EditorPatternButton.DEFAULT_NUM_MATCHES;
-  Region _match_region;
   int _width, _height;
   double _scale, _ratio;
   boolean _runFind = false;
-  float _similarity;
+  double _similarity;
   int _numMatches;
-  Set<Match> _fullMatches = null;
-  final Boolean _fullMatchesSynch = true;
+  Set<Match> _fullMatches = Collections.synchronizedSet(new TreeSet<Match>(new Comparator<Match>() {
+    @Override
+    public int compare(Match o1, Match o2) {
+      return -1 * o1.compareTo(o2);
+    }
+    @Override
+    public boolean equals(Object o) {
+      return false;
+    }
+    @Override
+    public int hashCode() {
+      int hash = 3;
+      return hash;
+    }
+  }));
   ArrayList<Match> _showMatches = null;
-  final Boolean _showMatchesSynch = true;
   protected ScreenImage _simg;
   protected BufferedImage _screen = null;
   protected Rectangle _uBound;
-  private JLabel btnSimilar, _lblMatchCount;
+  private JLabel btnSimilar;
   private JSlider sldSimilar;
-  private JSpinner txtNumMatches;
   private LoadingSpinner _loading;
   private String patternFileName;
 
@@ -52,15 +61,8 @@ class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentL
 
   private void init(ScreenImage simg, Dimension pDim, JLabel msgApplied) {
     _msgApplied = msgApplied;
-    _match_region = new ScreenUnion();
-    _ratio = (double) _match_region.w / _match_region.h;
-    _height = pDim.height - BOTTOM_MARGIN;
-    _scale = (double) _height / _match_region.h;
-    _width = (int) (_match_region.w * _scale);
-    setPreferredSize(new Dimension(_width, _height));
     addComponentListener(this);
-    _simg = simg;
-    _screen = simg.getImage();
+    initScreenImage(simg, pDim);
     //TODO Necessary? MAX_NUM_MATCHING = (int) Vision.getParameter("FindAllMaxReturn");
     autoResize();
     _loading = new LoadingSpinner();
@@ -126,44 +128,32 @@ class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentL
   }
 
   public void setParameters(final String patFilename,
-          final boolean exact, final float similarity,
+          final boolean exact, final double similarity,
           final int numMatches) {
     if (!_runFind) {
+      _showMatches = null;
+      _fullMatches.clear();
+      repaint();
       _runFind = true;
       patternFileName = patFilename;
       new Thread(() -> {
         try {
-          Finder f = new Finder(_simg, _match_region);
-          f.findAll(new Pattern(patFilename).similar(0.00001f));
-          _fullMatches = new TreeSet<Match>(new Comparator() {
-            @Override
-            public int compare(Object o1, Object o2) {
-              return -1 * ((Comparable) o1).compareTo(o2);
+          Finder f = new Finder(_simg);
+          f.findAll(new Pattern(patFilename).similar(0.00001));
+
+          int count = 0;
+          while (f.hasNext()) {
+            if (++count > MAX_NUM_MATCHING) {
+              break;
             }
-            @Override
-            public boolean equals(Object o) {
-              return false;
-            }
-            @Override
-            public int hashCode() {
-              int hash = 3;
-              return hash;
-            }
-          });
+            Match m = f.next();
+            Debug.log(4, me + "f.next(%d): " + m.toString(), count);
+
+            _fullMatches.add(m);
+          }
 
           EventQueue.invokeLater(() -> {
-            int count = 0;
-            while (f.hasNext()) {
-              if (++count > MAX_NUM_MATCHING) {
-                break;
-              }
-              Match m = f.next();
-              Debug.log(4, me + "f.next(%d): " + m.toString(), count);
-              synchronized (_fullMatchesSynch) {
-                _fullMatches.add(m);
-              }
-              setParameters(exact, similarity, numMatches);
-            }
+            setParameters(exact, similarity, numMatches);
           });
         } catch (Exception e) {
           Debug.error(me + "Problems searching image in ScreenUnion\n%s", e.getMessage());
@@ -179,14 +169,14 @@ class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentL
     setParameters(patternFileName, isExact(), getSimilarity(), getNumMatches());
   }
 
-  public void setParameters(boolean exact, float similarity, int numMatches) {
+  public void setParameters(boolean exact, double similarity, int numMatches) {
     if (numMatches > MAX_NUM_MATCHING) {
       numMatches = MAX_NUM_MATCHING;
     }
     if (!exact) {
       _similarity = similarity;
     } else {
-      _similarity = 0.99f;
+      _similarity = 0.99;
     }
     _numMatches = numMatches;
     filterMatches(_similarity, _numMatches);
@@ -217,16 +207,17 @@ class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentL
       _width = (int) getPreferredSize().getWidth();
     }
     _height = (int) ((double) _width / _ratio);
-    _scale = (double) _height / _match_region.h;
+    _scale = (double) _height / _simg.h;
     setPreferredSize(new Dimension(_width, _height));
     repaint();
+    revalidate();
   }
 
   public boolean isExact() {
-    return _similarity >= 0.99f;
+    return _similarity >= 0.99;
   }
 
-  public float getSimilarity() {
+  public double getSimilarity() {
     return _similarity;
   }
 
@@ -234,40 +225,38 @@ class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentL
     return _numMatches;
   }
 
-  public void setSimilarity(float similarity) {
-    _similarity = similarity > 0.99f ? 0.99f : similarity;
+  private void setSimilarity(double similarity) {
+    _similarity = similarity > 0.99 ? 0.99 : similarity;
     filterMatches(_similarity, _numMatches);
     repaint();
   }
 
-  public void setNumMatches(int numMatches) {
+  private void setNumMatches(int numMatches) {
     _numMatches = numMatches;
     filterMatches(_similarity, _numMatches);
     repaint();
   }
 
-  void filterMatches(float similarity, int numMatches) {
+  void filterMatches(double similarity, int numMatches) {
     int count = 0;
     if (_fullMatches != null && numMatches >= 0) {
-      if (_showMatches == null) {
-        _showMatches = new ArrayList<Match>();
+      _showMatches = new ArrayList<Match>();
+
+      if (numMatches == 0) {
+        return;
       }
-      synchronized (_showMatchesSynch) {
-        _showMatches.clear();
-        if (numMatches == 0) {
-          return;
-        }
-        synchronized (_fullMatchesSynch) {
-          for (Match m : _fullMatches) {
-            if (m.getScore() >= similarity) {
-              _showMatches.add(m);
-              if (++count >= numMatches) {
-                break;
-              }
+
+      synchronized(_fullMatches) {
+        for (Match m : _fullMatches) {
+          if (m.getScore() >= similarity) {
+            _showMatches.add(m);
+            if (++count >= numMatches) {
+              break;
             }
           }
         }
       }
+
 //      _lblMatchCount.setText(Integer.toString(count));
       Debug.log(4, "filterMatches(%.2f,%d): %d", similarity, numMatches, count);
     }
@@ -295,19 +284,16 @@ class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentL
   }
 
   void paintMatches(Graphics2D g2d) {
-    synchronized (_showMatchesSynch) {
-      for (Match m : _showMatches) {
-        int x = (int) ((m.x - _match_region.x) * _scale);
-        int y = (int) ((m.y - _match_region.y) * _scale);
-        int w = (int) (m.w * _scale);
-        int h = (int) (m.h * _scale);
-        Color c = PatternSimilaritySlider.getScoreColor(m.getScore());
-        g2d.setColor(c);
-        g2d.fillRect(x, y, w, h);
-        g2d.drawRect(x, y, w - 1, h - 1);
-      }
+    for (Match m : _showMatches) {
+      int x = (int) (m.x * _scale);
+      int y = (int) (m.y * _scale);
+      int w = (int) (m.w * _scale);
+      int h = (int) (m.h * _scale);
+      Color c = PatternSimilaritySlider.getScoreColor(m.getScore());
+      g2d.setColor(c);
+      g2d.fillRect(x, y, w, h);
+      g2d.drawRect(x, y, w - 1, h - 1);
     }
-
   }
 
   @Override
@@ -316,11 +302,27 @@ class PatternPaneScreenshot extends JPanel implements ChangeListener, ComponentL
     if (src instanceof JSlider) {
       JSlider source = (JSlider) e.getSource();
       int val = (int) source.getValue();
-      setSimilarity((float) val / 100);
+      setSimilarity((double) val / 100);
     } else if (src instanceof JSpinner) {
       JSpinner source = (JSpinner) e.getSource();
       int val = (Integer) source.getValue();
       setNumMatches(val);
     }
+  }
+
+  public void setScreenImage(ScreenImage simg, Dimension pDim) {
+    initScreenImage(simg, pDim);
+    reloadImage();
+    autoResize();
+  }
+
+  private void initScreenImage(ScreenImage simg, Dimension pDim) {
+    _simg = simg;
+    _screen = simg.getImage();
+    _ratio = (double)simg.w / simg.h;
+    _height = pDim.height - BOTTOM_MARGIN;
+    _scale = (double) _height / simg.h;
+    _width = (int) (simg.w * _scale);
+    setPreferredSize(new Dimension(_width, _height));
   }
 }
