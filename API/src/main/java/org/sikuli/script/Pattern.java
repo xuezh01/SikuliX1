@@ -92,7 +92,7 @@ public class Pattern {
    */
   public Pattern(URL url) {
     if (null == url) {
-      RunTime.terminate(999, "Pattern(URL): given url is null - a resource might not be available");
+      throw new SikuliXception("Pattern(URL): given url is null - a resource might not be available");
     }
     image = Image.create(url);
   }

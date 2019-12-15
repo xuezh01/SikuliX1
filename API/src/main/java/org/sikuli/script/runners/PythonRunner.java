@@ -4,12 +4,10 @@
 
 package org.sikuli.script.runners;
 
-import org.apache.commons.io.FileUtils;
 import org.sikuli.basics.Debug;
 import org.sikuli.basics.FileManager;
-import org.sikuli.script.support.ExtensionManager;
+import org.sikuli.script.support.Extensions;
 import org.sikuli.script.support.IScriptRunner;
-import org.sikuli.script.support.RunTime;
 
 import java.io.File;
 import java.io.PrintStream;
@@ -61,7 +59,7 @@ public class PythonRunner extends AbstractLocalFileScriptRunner {
     String scriptContent = FileManager.readFileToString(new File(scriptfile));
     Debug.log(3,"Python: running script: %s\n%s\n********** end", scriptfile, scriptContent);
     List<String> runArgs = new ArrayList<>();
-    runArgs.add(ExtensionManager.getPython());
+    runArgs.add(Extensions.getPython());
     runArgs.add(scriptfile);
     runArgs.addAll(Arrays.asList(scriptArgs));
     String runOut = ProcessRunner.run(runArgs);

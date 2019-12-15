@@ -179,7 +179,7 @@ public class TextRecognizer {
     }
     if (shouldExtract) {
       long tessdataStart = new Date().getTime();
-      List<String> files = RunTime.get().extractResourcesToFolder("/tessdataSX", fTessDataPath, null);
+      List<String> files = RunTime.extractResourcesToFolder("/tessdataSX", fTessDataPath, null);
       Debug.log("TextRecognizer: start: extracting tessdata took %d msec", new Date().getTime() - tessdataStart);
       if (files.size() == 0) {
         Debug.error("TextRecognizer: start: export tessdata not possible");

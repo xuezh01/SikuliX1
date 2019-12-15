@@ -213,9 +213,8 @@ public class ProcessRunner extends AbstractScriptRunner{
   }
 
   public static int startApp(List<String> givenCmd) {
-    RunTime runTime = RunTime.get();
     int exitValue = 0;
-    if (runTime.runningWindows) {
+    if (RunTime.runningWindows) {
       List<String> cmd = new ArrayList<>();
       cmd.add("cmd");
       cmd.add("/C");

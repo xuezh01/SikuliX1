@@ -4,7 +4,6 @@
 package org.sikuli.script.support;
 
 import org.sikuli.basics.Debug;
-import org.sikuli.basics.FileManager;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -22,7 +21,6 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -347,7 +345,7 @@ public class ExtensionManagerFrame extends JFrame {
     }
 
     private String renderHTML() {
-      String installed_version = ExtensionManager.getInstance().getVersion(_name);
+      String installed_version = Extensions.getInstance().getVersion(_name);
       if (installed_version == null) {
         installed_version = "Not installed";
       }
@@ -378,7 +376,7 @@ public class ExtensionManagerFrame extends JFrame {
 
     private int getStatus() {
 
-      ExtensionManager extMgr = ExtensionManager.getInstance();
+      Extensions extMgr = Extensions.getInstance();
 
       if (!extMgr.isInstalled(_name)) {
         return NOT_INSTALLED;
@@ -396,7 +394,7 @@ public class ExtensionManagerFrame extends JFrame {
       if (cmd.equals("Install")) {
         Debug.log("Installing " + _name + " from " + _jarurl);
 
-        ExtensionManager extMgr = ExtensionManager.getInstance();
+        Extensions extMgr = Extensions.getInstance();
 
         // try to install the extension
         if (extMgr.install(_name, _jarurl, _version)) {

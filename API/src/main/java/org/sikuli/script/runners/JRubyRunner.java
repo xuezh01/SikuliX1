@@ -5,6 +5,7 @@ package org.sikuli.script.runners;
 
 import org.apache.commons.io.FileUtils;
 import org.sikuli.basics.Debug;
+import org.sikuli.script.SX;
 import org.sikuli.script.runnerSupport.JRubySupport;
 import org.sikuli.script.support.IScriptRunner;
 import org.sikuli.script.support.Runner;
@@ -26,6 +27,9 @@ public class JRubyRunner extends AbstractLocalFileScriptRunner {
 
   @Override
   public boolean isSupported() {
+    if (!SX.isOption("jruby", true)) {
+      return false;
+    }
     return jrubySupport.isSupported();
   }
 

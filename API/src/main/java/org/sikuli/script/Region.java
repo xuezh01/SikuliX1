@@ -4762,7 +4762,7 @@ public class Region {
   public <PFRML> void aTap(PFRML target) throws FindFailed {
     Location loc = getLocationFromTarget(target);
     if (loc != null) {
-      ExtensionManager.invokeAndWait("ADBDevice.tap", this, loc.x, loc.y);
+      Extensions.invokeAndWait("ADBDevice.tap", this, loc.x, loc.y);
     }
   }
 
@@ -4773,7 +4773,7 @@ public class Region {
    * @param text text
    */
   public void aInput(String text) {
-    ExtensionManager.invokeAndWait("ADBDevice.input", this, text);
+    Extensions.invokeAndWait("ADBDevice.input", this, text);
   }
 
   /*
@@ -4783,7 +4783,7 @@ public class Region {
    * @param key key
    */
   public void aKey(int key) {
-    ExtensionManager.invoke("ADBDevice.inputKeyEvent", this, key);
+    Extensions.invoke("ADBDevice.inputKeyEvent", this, key);
   }
 
   /*
@@ -4799,7 +4799,7 @@ public class Region {
     Location locFrom = getLocationFromTarget(from);
     Location locTo = getLocationFromTarget(to);
     if (locFrom != null && locTo != null) {
-      ExtensionManager.invokeAndWait("ADBDevice.swipe", this, locFrom.x, locFrom.y, locTo.x, locTo.y);
+      Extensions.invokeAndWait("ADBDevice.swipe", this, locFrom.x, locFrom.y, locTo.x, locTo.y);
     }
   }
 

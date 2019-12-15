@@ -9,6 +9,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Point;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -26,6 +27,8 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextArea;
 
 import org.sikuli.basics.Debug;
+import org.sikuli.basics.Settings;
+import org.sikuli.script.support.RunTime;
 
 public class SX {
 
@@ -37,14 +40,14 @@ public class SX {
 
   private static Log log = new Log();
 
-  private static final ScheduledExecutorService TIMEOUT_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
-
   //<editor-fold desc="01 input, popup, popAsk, popError">
   private enum PopType {
     POPUP, POPASK, POPERROR, POPINPUT
   }
 
-  private static  boolean isVersion1() { return true; }
+  private static boolean isVersion1() {
+    return true;
+  }
 
   private static boolean isHeadless() {
     return GraphicsEnvironment.isHeadless();
@@ -56,6 +59,8 @@ public class SX {
     } catch (InterruptedException ex) {
     }
   }
+
+  private static final ScheduledExecutorService TIMEOUT_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
   /**
    * optionally timed popup (self-vanishing)
@@ -161,7 +166,7 @@ public class SX {
               title = "Sikuli input request";
             }
             returnValue = JOptionPane.showInputDialog(frame, message, title,
-                    JOptionPane.PLAIN_MESSAGE, null, null, preset);
+                JOptionPane.PLAIN_MESSAGE, null, null, preset);
           } else {
             JTextArea messageText = new JTextArea(message);
             messageText.setColumns(20);
@@ -201,7 +206,7 @@ public class SX {
           }
         }
 
-        synchronized(this) {
+        synchronized (this) {
           dispose(); // needs to be here, frame is not always closed properly otherwise
           this.notify();
         }
@@ -215,7 +220,7 @@ public class SX {
       }
 
       public void dispose() {
-         frame.dispose();
+        frame.dispose();
       }
 
       public Object getReturnValue() {
@@ -224,16 +229,18 @@ public class SX {
     }
 
     RunInput popRun = new RunInput(popType, args);
-    ScheduledFuture<?> timeoutJob = TIMEOUT_EXECUTOR.schedule((() -> {popRun.dispose();}), popRun.getTimeout(), TimeUnit.MILLISECONDS);
+    ScheduledFuture<?> timeoutJob = TIMEOUT_EXECUTOR.schedule((() -> {
+      popRun.dispose();
+    }), popRun.getTimeout(), TimeUnit.MILLISECONDS);
 
-    if(EventQueue.isDispatchThread()) {
+    if (EventQueue.isDispatchThread()) {
       try {
         popRun.run();
       } finally {
         timeoutJob.cancel(false);
       }
     } else {
-      synchronized(popRun) {
+      synchronized (popRun) {
         EventQueue.invokeLater(popRun);
         try {
           popRun.wait();
@@ -251,7 +258,7 @@ public class SX {
     String parameterNames = "message,title,preset,hidden,timeout,location";
     String parameterClass = "s,s,s,b,i,e";
     Object[] parameterDefault = new Object[]{"not set", "SikuliX", "", false, Integer.MAX_VALUE, on()};
-    return Parameters.get(parameterNames, parameterClass, parameterDefault, args);
+    return Parameters.create(parameterNames, parameterClass, parameterDefault, args);
   }
 
   private static JFrame getFrame(Object point) {
@@ -261,13 +268,8 @@ public class SX {
       x = ((Point) point).x;
       y = ((Point) point).y;
     } else {
-      if (isVersion1()) {
-        x = ((Region) point).getCenter().x;
-        y = ((Region) point).getCenter().y;
-      } else {
-        x = ((Element) point).getCenter().x;
-        y = ((Element) point).getCenter().y;
-      }
+      x = ((Region) point).getCenter().x;
+      y = ((Region) point).getCenter().y;
     }
     JFrame anchor = new JFrame();
     anchor.setAlwaysOnTop(true);
@@ -278,17 +280,17 @@ public class SX {
     return anchor;
   }
 
-  public static Region on() {
+  private static Region on() {
     return Screen.getPrimaryScreen();
   }
 
-  static private class Parameters {
+  private static class Parameters {
 
     private Map<String, String> parameterTypes = new HashMap<>();
     private String[] parameterNames = null;
     private Object[] parameterDefaults = new Object[0];
 
-    public Parameters(String theNames, String theClasses, Object[] theDefaults) {
+    private Parameters(String theNames, String theClasses, Object[] theDefaults) {
       String[] names = theNames.split(",");
       String[] classes = theClasses.split(",");
       if (names.length == classes.length) {
@@ -305,15 +307,12 @@ public class SX {
             } else if ("b".equals(clazz)) {
               clazz = "Boolean";
             } else if ("e".equals(clazz)) {
-              if (isVersion1()) {
-                clazz = "Region";
-              }
-              clazz = "Element";
+              clazz = "Region";
             }
           }
           if ("String".equals(clazz) || "Integer".equals(clazz) ||
-                  "Double".equals(clazz) || "Boolean".equals(clazz) ||
-                  "Element".equals(clazz) || "Region".equals(clazz)) {
+              "Double".equals(clazz) || "Boolean".equals(clazz) ||
+              "Element".equals(clazz) || "Region".equals(clazz)) {
             parameterTypes.put(names[n], clazz);
           }
         }
@@ -324,16 +323,16 @@ public class SX {
       }
     }
 
-    public static Map<String, Object> get(Object... args) {
+    public static Map<String, Object> create(Object... args) {
       String theNames = (String) args[0];
       String theClasses = (String) args[1];
       Object[] theDefaults = (Object[]) args[2];
       Object[] theArgs = (Object[]) args[3];
       Parameters theParameters = new Parameters(theNames, theClasses, theDefaults);
-      return theParameters.getParameters(theArgs);
+      return theParameters.getAll(theArgs);
     }
 
-    private Object getParameter(Object possibleValue, String parameterName) {
+    private Object get(Object possibleValue, String parameterName) {
       String clazz = parameterTypes.get(parameterName);
       Object value = null;
       if ("String".equals(clazz)) {
@@ -352,19 +351,15 @@ public class SX {
         if (possibleValue instanceof Boolean) {
           value = possibleValue;
         }
-      } else if ("Element".equals(clazz)) {
-        if (isVersion1()) {
-          if (possibleValue instanceof Region) {
-            value = possibleValue;
-          }
-        } else if (possibleValue instanceof Element) {
+      } else if ("Region".equals(clazz)) {
+        if (possibleValue instanceof Region) {
           value = possibleValue;
         }
       }
       return value;
     }
 
-    public Map<String, Object> getParameters(Object[] args) {
+    public Map<String, Object> getAll(Object[] args) {
       Map<String, Object> params = new HashMap<>();
       if (isNotNull(parameterNames)) {
         int n = 0;
@@ -372,7 +367,7 @@ public class SX {
         for (String parameterName : parameterNames) {
           params.put(parameterName, parameterDefaults[n]);
           if (args.length > 0 && argsn < args.length) {
-            Object arg = getParameter(args[argsn], parameterName);
+            Object arg = get(args[argsn], parameterName);
             if (isNotNull(arg)) {
               params.put(parameterName, arg);
               argsn++;
@@ -384,8 +379,232 @@ public class SX {
       return params;
     }
   }
+  //</editor-fold>
 
-  static class Element extends Region {}
+  //<editor-fold defaultstate="collapsed" desc="09 options handling">
+  private static Options sxOptions = null;
+
+  public static void initOptions(String path) {
+    float forever = Settings.FOREVER; // to force Settings initialization
+    sxOptions = Options.init(path);
+    if (null == sxOptions) {
+      RunTime.terminate(999, "[ERROR] SikuliX Options init: not possible");
+    }
+  }
+
+  public static void closeOptions() {
+    if (null != sxOptions) {
+      if (sxOptions.hasOptions()) {
+          sxOptions.save();
+      }
+    }
+  }
+
+  public static Options options() {
+    if (null == sxOptions) {
+      initOptions("");
+    }
+    return sxOptions;
+  }
+
+  public static File getOptionsFile() {
+    return options().getFile();
+  }
+
+  //<editor-fold desc="03 get option">
+  /**
+   * if no option file is found, the option is taken as not existing<br>
+   * side-effect: if no options file is there, an options store will be created in memory<br>
+   * in this case and when the option is absent or empty, the given default will be stored<br>
+   * you might later save the options store to a file with saveOptions()<br>
+   * the default value is either the empty string, number 0 or false
+   *
+   * @param pName    the option key (case-sensitive)
+   * @param sDefault the default to be returned if option absent or empty
+   * @return the associated value, the default value if absent or empty
+   */
+  public static String getOption(String pName, String sDefault) {
+    return options().get(pName, sDefault);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName the option key (case-sensitive)
+   * @return the associated value, empty string if absent
+   */
+  public static String getOption(String pName) {
+    return getOption(pName, "");
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName    the option key (case-sensitive)
+   * @param nDefault the default to be returned if option absent, empty or not convertible
+   * @return the converted integer number, default if absent, empty or not possible
+   */
+  public static int getOptionInteger(String pName, Integer nDefault) {
+    return options().getInteger(pName, nDefault);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName the option key (case-sensitive)
+   * @return the converted integer number, 0 if absent or not possible
+   */
+  public static int getOptionInteger(String pName) {
+    return getOptionInteger(pName, 0);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName the option key (case-sensitive)
+   * @return the converted float number, default if absent or not possible
+   */
+  public static float getOptionFloat(String pName, float nDefault) {
+    return options().getFloat(pName, nDefault);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName the option key (case-sensitive)
+   * @return the converted float number, 0 if absent or not possible
+   */
+  public static float getOptionFloat(String pName) {
+    return getOptionFloat(pName, 0);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName the option key (case-sensitive)
+   * @return the converted float number, default if absent or not possible
+   */
+  public static double getOptionDouble(String pName, double nDefault) {
+    return options().getDouble(pName, nDefault);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName the option key (case-sensitive)
+   * @return the converted double number, 0 if absent or not possible
+   */
+  public static double getOptionDouble(String pName) {
+    return getOptionDouble(pName, 0);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName    the option key (case-sensitive)
+   * @param bDefault the default to be returned if option absent or empty
+   * @return true if option has yes or no, false for no or false (not case-sensitive)
+   */
+  public static boolean isOption(String pName, boolean bDefault) {
+    return options().is(pName, bDefault);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName the option key (case-sensitive)
+   * @return true only if option exists and has yes or true (not case-sensitive), in all other cases false
+   */
+  public static boolean isOption(String pName) {
+    return isOption(pName, false);
+  }
+  //</editor-fold>
+
+  //<editor-fold desc="05 set option">
+  /**
+   * {link getOption}
+   *
+   * @param pName  the option key (case-sensitive)
+   * @param sValue the value to be set
+   */
+  public static void setOption(String pName, String sValue) {
+    options().set(pName, sValue);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName  the option key (case-sensitive)
+   * @param nValue the value to be set
+   */
+  public static void setOptionInteger(String pName, int nValue) {
+    options().setInteger(pName, nValue);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName  the option key (case-sensitive)
+   * @param nValue the value to be set
+   */
+  public static void setOptionFloat(String pName, float nValue) {
+    options().setFloat(pName, nValue);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName  the option key (case-sensitive)
+   * @param nValue the value to be set
+   */
+  public static void setOptionDouble(String pName, double nValue) {
+    options().setDouble(pName, nValue);
+  }
+
+  /**
+   * {link getOption}
+   *
+   * @param pName  the option key (case-sensitive)
+   * @param bValue the value to be set
+   */
+  public static void setOptionBool(String pName, boolean bValue) {
+    options().setBoolean(pName, bValue);
+  }
+  //</editor-fold>
+
+  //<editor-fold desc="09 all options">
+  /**
+   * check whether options are defined
+   *
+   * @return true if at lest one option defined else false
+   */
+  public static boolean hasOptions() {
+    return options().hasOptions();
+  }
+
+  /**
+   * all options and their values
+   *
+   * @return a map of key-value pairs containing the found options, empty if no options file found
+   */
+  public static Map<String, String> getOptions() {
+    return options().getOptions();
+  }
+
+  /**
+   * all options and their values written to sysout as key = value
+   */
+  public static void dumpOptions() {
+    if (hasOptions()) {
+      Map<String, String> mapOptions = getOptions();
+      Debug.logp("*** options dump");
+      for (String sOpt : mapOptions.keySet()) {
+        Debug.logp("%s = %s", sOpt, mapOptions.get(sOpt));
+      }
+      Debug.logp("*** options dump end");
+    }
+  }
+  //</editor-fold>
   //</editor-fold>
 
   public static boolean isNotNull(Object obj) {
@@ -397,7 +616,7 @@ public class SX {
   }
 
   //<editor-fold desc="10 Python support">
-  public void reset() {
+  public static void reset() {
     Debug.log(3, "SX.reset()");
     Screen.resetMonitorsQuiet();
     Mouse.reset();

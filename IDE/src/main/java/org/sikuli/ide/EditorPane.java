@@ -11,11 +11,10 @@ import org.sikuli.idesupport.IIndentationLogic;
 import org.sikuli.script.Image;
 import org.sikuli.script.ImagePath;
 import org.sikuli.script.Location;
-import org.sikuli.script.SX;
 import org.sikuli.script.runners.JythonRunner;
 import org.sikuli.script.runners.PythonRunner;
 import org.sikuli.script.runners.TextRunner;
-import org.sikuli.script.support.ExtensionManager;
+import org.sikuli.script.support.Extensions;
 import org.sikuli.script.support.IScriptRunner;
 import org.sikuli.script.support.IScriptRunner.EffectiveRunner;
 import org.sikuli.script.support.RunTime;
@@ -39,7 +38,6 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.io.*;
 import java.nio.charset.Charset;
-import java.util.List;
 import java.util.*;
 import java.util.prefs.PreferenceChangeEvent;
 import java.util.prefs.PreferenceChangeListener;
@@ -472,9 +470,9 @@ public class EditorPane extends JTextPane {
     log(3, "checkSource: started (%s)", editorPaneFile);
     String scriptText = getText();
     if (editorPaneType == JythonRunner.TYPE) {
-      if (ExtensionManager.hasPython()) {
+      if (Extensions.hasPython()) {
         String intro = scriptText.substring(0, Math.min(20, scriptText.length())).trim().toUpperCase();
-        if (intro.contains(ExtensionManager.shebangPython)) {
+        if (intro.contains(Extensions.shebangPython)) {
           editorPaneType = PythonRunner.TYPE;
         }
       }
@@ -659,7 +657,7 @@ public class EditorPane extends JTextPane {
 
   public void showType() {
     if (isPython()) {
-      if (ExtensionManager.hasPython() && ExtensionManager.hasShebang(ExtensionManager.shebangPython, getText())) {
+      if (Extensions.hasPython() && Extensions.hasShebang(Extensions.shebangPython, getText())) {
         setType(PythonRunner.TYPE);
         SikulixIDE.getStatusbar().setType(PythonRunner.TYPE);
       } else {

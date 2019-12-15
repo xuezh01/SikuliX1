@@ -3,7 +3,6 @@
  */
 package org.sikuli.ide;
 
-import org.apache.commons.io.FileUtils;
 import org.sikuli.basics.*;
 import org.sikuli.basics.PreferencesUser;
 import org.sikuli.basics.Settings;
@@ -11,21 +10,19 @@ import org.sikuli.script.Key;
 import org.sikuli.script.Screen;
 import org.sikuli.script.ScreenImage;
 import org.sikuli.script.Sikulix;
-import org.sikuli.script.support.ExtensionManager;
+import org.sikuli.script.support.Extensions;
 import org.sikuli.script.support.IScreen;
 import org.sikuli.script.support.RunTime;
 import org.sikuli.util.EventObserver;
 import org.sikuli.util.EventSubject;
 import org.sikuli.util.OverlayCapturePrompt;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import java.io.IOException;
 import java.net.URL;
 
 class ButtonCapture extends ButtonOnToolbar implements ActionListener, Cloneable, EventObserver {
@@ -115,7 +112,7 @@ class ButtonCapture extends ButtonOnToolbar implements ActionListener, Cloneable
         new Thread() {
           @Override
           public void run() {
-            sImgNonLocal = (ScreenImage) ExtensionManager.invoke("ADBScreen.userCapture", defaultScreen, "");
+            sImgNonLocal = (ScreenImage) Extensions.invoke("ADBScreen.userCapture", defaultScreen, "");
             ButtonCapture.this.update((EventSubject) null);
           }
         }.start();

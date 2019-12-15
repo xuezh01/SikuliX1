@@ -15,8 +15,6 @@ public class PowershellRunner extends AbstractLocalFileScriptRunner {
   public static final String TYPE = "text/powershell";
   public static final String[] EXTENSIONS = new String[] {"ps1"};
 
-  private static final RunTime RUN_TIME = RunTime.get();
-
   @Override
   protected int doEvalScript(String script, IScriptRunner.Options options) {
     File aFile = FileManager.createTempFile("ps1");
@@ -37,7 +35,7 @@ public class PowershellRunner extends AbstractLocalFileScriptRunner {
             "cmd.exe", "/S", "/C",
             "type " + fScriptFile.getAbsolutePath() + " | powershell -noprofile -"
     };
-    String retVal = RUN_TIME.runcmd(psCmdType);
+    String retVal = RunTime.runcmd(psCmdType);
     String[] parts = retVal.split("\\s");
     int retcode = -1;
     try {
@@ -45,7 +43,7 @@ public class PowershellRunner extends AbstractLocalFileScriptRunner {
     } catch (Exception ex) {
     }
     if (retcode != 0) {
-      log(-1, "PowerShell:\n%s\nreturned:\n%s", fScriptFile, RUN_TIME.getLastCommandResult());
+      log(-1, "PowerShell:\n%s\nreturned:\n%s", fScriptFile, RunTime.getLastCommandResult());
     }
     return retcode;
   }

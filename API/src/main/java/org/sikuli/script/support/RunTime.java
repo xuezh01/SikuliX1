@@ -19,7 +19,6 @@ import java.awt.Desktop;
 import java.awt.GraphicsEnvironment;
 import java.io.*;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.*;
 import java.security.CodeSource;
@@ -34,12 +33,14 @@ import java.util.zip.ZipInputStream;
  */
 public class RunTime {
 
-  //<editor-fold desc="00 static private">
+  //<editor-fold desc="00 global variables">
   private RunTime() {
     RunTime.logCallStack(2, "RunTime: instantiation");
   }
 
   private static Class runTimeClass = RunTime.class;
+
+  private static boolean verbose = false;
 
   private static final long started = new Date().getTime();
   private static final long obsolete = started - 2 * 24 * 60 * 60 * 1000;
@@ -110,14 +111,13 @@ public class RunTime {
   private static List<URL> classPathActual = new ArrayList<>();
   private static List<String> classPathList = new ArrayList<>();
 
-  private static boolean optTesting = false;
+  private static String sxOptionsPath = null;
   private static boolean testing = false;
   private static String sxGlobalDebug = null;
 
   private static String runningAs = "OTHER";
-  private static boolean isTerminating = false;
 
-  private static List<String> startArgs = new ArrayList<>();
+  private static List<String> startArgs = null;
   private static Map<Object, Object> startSysProps = new HashMap<>();
 
   public static final String libOpenCV = "opencv_java"; //Core.NATIVE_LIBRARY_NAME;
@@ -159,9 +159,7 @@ public class RunTime {
       InputStream is;
       is = runTimeClass.getClassLoader().getResourceAsStream(versionFile);
       if (is == null) {
-        String msg = String.format("fatal: " + "initSikulixVersion: not found on classpath: %s", versionFile);
-        Debug.error(msg);
-        throw new SikuliXception(msg);
+        terminate(999, "[ERROR] initSikulixVersion: not found on classpath: %s", versionFile);
       }
       prop.load(is);
       is.close();
@@ -177,9 +175,7 @@ public class RunTime {
       }
       buildStamp = buildTime.replace("_", "").replace("-", "").replace(":", "").substring(0, 12);
     } catch (Exception e) {
-      String msg = String.format("Settings: load version file %s did not work: %s", versionFile, e.getMessage());
-      Debug.error(msg);
-      throw new SikuliXception(msg);
+      terminate(999, "[ERROR] Settings: load version file %s did not work: %s", versionFile, e.getMessage());
     }
     versionIDE = "SikulixIDE-" + sikulixVersion;
     versionAPI = "SikulixAPI " + sikulixVersion;
@@ -217,11 +213,11 @@ public class RunTime {
     }
 
     if (javaVersion < 8) {
-      throw new SikuliXception(String.format("fatal: " + "Java version must at least be 8 (%s)", javaShow));
+      terminate(999, "[ERROR] Java version must at least be 8 (%s)", javaShow);
     }
 
     if (null == vSysArch) {
-      throw new SikuliXception(String.format("fatal: " + "Java arch must be 64 Bit (%s)", javaShow));
+      terminate(999,"[ERROR] Java arch must be 64 Bit (%s)", javaShow);
     }
     SXJavaVersion = "Java" + javaVersion + "(" + javaArch + ")" + sysPropJRTVersion;
   }
@@ -258,15 +254,16 @@ public class RunTime {
   }
 
   private static void evalSikulixFolder() {
-    if (sysPropUserHome == null || sysPropUserHome.isEmpty() || !getUserHome().exists()) {
-      throw new SikuliXception(String.format("fatal: " + "JavaSystemProperty::user.home not valid"));
-    }
     if (sysPropUserDir == null || sysPropUserDir.isEmpty() || !getWorkDir().exists()) {
-      throw new SikuliXception(String.format("fatal: " + "JavaSystemProperty::user.dir not valid"));
+      terminate(999,"[ERROR] JavaSystemProperty::user.dir not valid: %s", sysPropUserDir);
     }
   }
 
-  private static List<String> evalArgsStart(String[] args) {
+  public static void evalArgsStart(String[] args) {
+    if (startArgs != null) {
+      return;
+    }
+    startArgs = new ArrayList<>();
     for (String arg : args) {
       if ("-v".equals(arg)) {
         setVerbose();
@@ -283,7 +280,7 @@ public class RunTime {
       }
       startArgs.add(arg);
     }
-    return startArgs;
+    return;
   }
 
   public static int getJVersion() {
@@ -331,7 +328,7 @@ public class RunTime {
       sxSandbox = null;
       String userHome = sysPropUserHome;
       if (userHome == null || userHome.isEmpty() || !(fUserDir = new File(userHome)).exists()) {
-        terminate(999, String.format("[ERROR] RunTime: System property user.home not valid: %s", userHome));
+        terminate(999, "[ERROR] RunTime: System property user.home not valid: %s", userHome);
       } else {
         if ("w".equals(sysNameShort)) {
           String appPath = System.getenv("APPDATA");
@@ -349,7 +346,7 @@ public class RunTime {
       sxAppDataFolder.mkdirs();
     }
     if (!sxAppDataFolder.exists()) {
-      terminate(999, String.format("[ERROR] RunTime: SikuliX AppData folder not exists: %s", sxAppDataFolder));
+      terminate(999, "[ERROR] RunTime: SikuliX AppData folder not exists: %s", sxAppDataFolder);
     }
   }
 
@@ -378,12 +375,12 @@ public class RunTime {
         jarName = URLDecoder.decode(jarName, "utf8");
       } catch (UnsupportedEncodingException e) {
         dumpClassPath();
-        terminate(999, String.format("RunTime::getRunningJar: URLDecoder: not possible: %s", jarName));
+        terminate(999, "[ERROR] RunTime::getRunningJar: URLDecoder: not possible: %s", jarName);
       }
       sxRunningJar = new File(jarName);
     } else {
       dumpClassPath();
-      terminate(999, String.format("RunTime::getRunningJar: no valid Java context (%s)", runTimeClass));
+      terminate(999, "[ERROR] RunTime::getRunningJar: no valid Java context (%s)", runTimeClass);
     }
   }
 
@@ -402,8 +399,18 @@ public class RunTime {
           sxSandbox = sysProps.get(key).toString();
         } else if ("sikuli.Debug".equals(key)) {
           sxGlobalDebug = sysProps.get(key).toString();
+        } else if ("sikuli.Options".equals(key)) {
+          sxOptionsPath = sysProps.get(key).toString();
         }
       }
+    }
+    if (sxOptionsPath != null && !sxOptionsPath.isEmpty()) {
+      SX.initOptions(sxOptionsPath);
+    } else {
+      SX.initOptions("");
+    }
+    if (isTesting()) {
+      setVerbose();
     }
     evalSystemVersion();
     evalJavaVersion();
@@ -411,15 +418,6 @@ public class RunTime {
     evalSikulixFolder();
     evalRunningJar();
     evalAppDataFolder();
-  }
-
-  private static RunTime runTime = null;
-
-  public static synchronized RunTime get() {
-    if (runTime == null) {
-      runTime = new RunTime();
-    }
-    return runTime;
   }
 
   private static void init(String type) {
@@ -433,6 +431,7 @@ public class RunTime {
         runShutdownHook();
       }
     });
+    hasShutDown = true;
     //</editor-fold>
 
     //<editor-fold desc="02 APPDATA folder, TempFolder">
@@ -442,22 +441,22 @@ public class RunTime {
       if (tmpdir != null && !tmpdir.isEmpty()) {
         fTempPath = new File(tmpdir);
       } else {
-        throw new SikuliXception("init: java.io.tmpdir not valid (null or empty");
+        terminate(999, "[ERROR] init: java.io.tmpdir not valid (null or empty");
       }
     } else {
       File fSandbox = getAppDataFolder().getParentFile();
       fTempPath = new File(fSandbox, "SikulixTemp");
       fTempPath.mkdir();
       if (fTempPath.exists()) {
-        startLog(3, "Sandbox Temp: %s", fTempPath);
+        log(3, "Sandbox Temp: %s", fTempPath);
       } else {
-        throw new SikuliXception(String.format("init: Sandbox Temp not possible: %s", fTempPath));
+        terminate(999, "[ERROR] init: Sandbox Temp not possible: %s", fTempPath);
       }
     }
     fBaseTempPath = new File(fTempPath, String.format("Sikulix_%d", FileManager.getRandomInt()));
     fpBaseTempPath = fBaseTempPath.getAbsolutePath();
     fBaseTempPath.mkdirs();
-    log(3, " trying temp folder: %s", fpBaseTempPath);
+    log(3, "IDE temp folder: %s", fpBaseTempPath);
     try {
       File tempTest = new File(fBaseTempPath, "tempTest.txt");
       FileManager.writeStringToFile("temp test", tempTest);
@@ -471,10 +470,10 @@ public class RunTime {
         success = false;
       }
       if (!success) {
-        throw new SikuliXception("init: temp folder not useable");
+        terminate(999, "[ERROR] init: temp folder not useable");
       }
     } catch (Exception e) {
-      throw new SikuliXception("init: temp folder not writable");
+      terminate(999, "[ERROR] init: temp folder not writable");
     }
 
     for (String aFile : fTempPath.list()) {
@@ -540,43 +539,13 @@ public class RunTime {
     log(3, "global init: leaving");
   }
 
-  private static void initOptions(String type) {
-    float forever = Settings.FOREVER; // to force Settings initialization
-    sxOptions = Options.init(runTime);
-    optTesting = sxOptions.isOption("testing", false);
-    if (optTesting) {
-      Debug.info("Options: testing = on");
-    }
-    int optDebugLevel = optTesting ? Debug.getDebugLevel() : sxOptions.getOptionInteger("Debug.level", -1);
-    if (optDebugLevel > Debug.getDebugLevel()) {
-      Debug.info("Options: Debug.level = %d", optDebugLevel);
-      Debug.on(optDebugLevel);
-    }
-    runTime.initSikulixOptions();
-
-  }
-
-  public static boolean isIDE() {
-    return runningAsIDE;
-  }
-
-  public static boolean isDevelop() {
-    return System.getProperty("sikuli.Develop") != null;
-  }
-
-  public static boolean isTesting() {
-    return optTesting;
-  }
-
-  public static void setSandbox() {
-    sxSandbox = "";
-  }
-
-  public static boolean isSandbox() {
-    return sxSandbox != null;
-  }
-
   private static RobotDesktop cleanupRobot = null;
+
+  public static boolean isRunningIDE() {
+    return runningIDE;
+  }
+
+  private static boolean runningIDE = false;
 
   private static void initAPI() {
     log(4, "initAPI: entering");
@@ -586,12 +555,6 @@ public class RunTime {
     }
     log(4, "initAPI: leaving");
   }
-
-  public static boolean isRunningIDE() {
-    return runningIDE;
-  }
-
-  private static boolean runningIDE = false;
 
   private static void initIDEbefore() {
     log(4, "initIDEbefore: entering");
@@ -611,7 +574,7 @@ public class RunTime {
     log(4, "initIDEafter: leaving");
   }
 
-//  private static Class<?> cIDE = null;
+  //  private static Class<?> cIDE = null;
 //  private static Method mHide = null;
 //  private static Method mShow = null;
 //
@@ -638,6 +601,26 @@ public class RunTime {
 //      }
 //    }
 //  }
+
+  public static boolean isIDE() {
+    return runningAsIDE;
+  }
+
+  public static boolean isDevelop() {
+    return System.getProperty("sikuli.Develop") != null;
+  }
+
+  public static boolean isTesting() {
+    return SX.isOption("testing", false);
+  }
+
+  public static void setSandbox() {
+    sxSandbox = "";
+  }
+
+  public static boolean isSandbox() {
+    return sxSandbox != null;
+  }
   //</editor-fold>
 
   //<editor-fold desc="05 startup">
@@ -645,7 +628,7 @@ public class RunTime {
 
     evalArgsStart(args);
 
-    RunTime.startLog(1, "Running: %s", getRunningJar());
+    log(3, "Running: %s", getRunningJar());
 
     if ("API".equals(type)) {
       runningAsIDE = false;
@@ -678,13 +661,11 @@ public class RunTime {
       }
     }
 
-    RunTime.startLog(1, "AppData%s: %s",
-        (sxSandbox != null ? " (Sandbox)" : ""),
-        getAppDataPath());
+    log(3, "AppData%s: %s", (sxSandbox != null ? " (Sandbox)" : ""), getAppDataPath());
 
     if (getRunningJar().getName().endsWith(".jar")) {
       String classPath = "";
-      classPath = ExtensionManager.makeClassPath(getRunningJar());
+      classPath = Extensions.makeClassPath(getRunningJar());
       List<String> cmd = new ArrayList<>();
       if (onWindows()) {
         cmd.add(sysPropJavaHome + "\\bin\\java.exe");
@@ -740,7 +721,6 @@ java.desktop/sun.awt=ALL-UNNAMED
       }
       cmd.addAll(startArgs);
 
-      RunTime.startLog(3, "*********************** detach: leaving start");
       if (shouldDetach()) {
         ProcessRunner.detach(cmd);
         System.exit(0);
@@ -749,7 +729,6 @@ java.desktop/sun.awt=ALL-UNNAMED
         System.exit(exitCode);
       }
     }
-    RunTime.startLog(3, "*********************** inline: leaving start");
   }
 
   public static void afterStart(String type, String[] args) {
@@ -774,7 +753,7 @@ java.desktop/sun.awt=ALL-UNNAMED
       System.setProperty("java.io.tmpdir", javaTemp);
     }
     evalArgs(args);
-    ExtensionManager.readExtensions(true);
+    Extensions.readExtensions(true);
 
     if (isQuiet()) {
       Debug.quietOn();
@@ -797,7 +776,7 @@ java.desktop/sun.awt=ALL-UNNAMED
       HotkeyManager.getInstance().addHotkey("Abort", new HotkeyListener() {
         @Override
         public void hotkeyPressed(HotkeyEvent e) {
-          if (RunTime.get().runningScripts()) {
+          if (RunTime.runningScripts()) {
             Runner.abortAll();
             terminate(254, "AbortKey was pressed: aborting all running scripts");
           }
@@ -811,7 +790,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     }
 
     if (shouldRunPythonServer()) {
-      get().installStopHotkeyPythonServer();
+      installStopHotkeyPythonServer();
       if (Debug.getDebugLevel() == 3) {
       }
       startPythonServer();
@@ -833,7 +812,7 @@ java.desktop/sun.awt=ALL-UNNAMED
 
     boolean cmdLineValid = true;
     if (cmdLine == null) {
-      startLog(-1, "Did not find any valid option on command line!");
+      log(-1, "Did not find any valid option on command line!");
       cmdLineValid = false;
     } else {
       setArgs(cmdArgs.getUserArgs(), cmdArgs.getSXArgs());
@@ -854,18 +833,18 @@ java.desktop/sun.awt=ALL-UNNAMED
     if (cmdLineValid && cmdLine.hasOption("g")) {
       if (cmdLine.hasOption("s")) {
         serverGroups = cmdLine.getOptionValue("g");
-        startLog(3, "groups (-g): %s", serverGroups);
+        log(3, "groups (-g): %s", serverGroups);
       } else {
-        startLog(-1, "groups (-g): currently only accepted with -s");
+        log(-1, "groups (-g): currently only accepted with -s");
       }
     }
 
     if (cmdLineValid && cmdLine.hasOption("x")) {
       if (cmdLine.hasOption("s")) {
         serverExtra = cmdLine.getOptionValue("x");
-        startLog(3, "extra (-x): %s", serverExtra);
+        log(3, "extra (-x): %s", serverExtra);
       } else {
-        startLog(-1, "extra (-x): currently only accepted with -s");
+        log(-1, "extra (-x): currently only accepted with -s");
       }
     }
 
@@ -926,16 +905,16 @@ java.desktop/sun.awt=ALL-UNNAMED
   public static void printArgs() {
     String[] xargs = getSXArgs();
     if (xargs.length > 0) {
-      startLog(1, "--- Sikuli parameters ---");
+      log(3, "--- SikuliX parameters ---");
       for (int i = 0; i < xargs.length; i++) {
-        startLog(1, "%d: %s", i + 1, xargs[i]);
+        log(3, "%d: %s", i + 1, xargs[i]);
       }
     }
     xargs = getUserArgs();
     if (xargs.length > 0) {
-      startLog(1, "--- User parameters ---");
+      log(3, "--- User parameters ---");
       for (int i = 0; i < xargs.length; i++) {
-        startLog(1, "%d: %s", i + 1, xargs[i]);
+        log(3, "%d: %s", i + 1, xargs[i]);
       }
     }
   }
@@ -1066,7 +1045,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @return absolute file or null if not found
    */
   public static String resolveRelativeFile(String scriptName, String baseDir) {
-    if (get().runningWindows && (scriptName.startsWith("\\") || scriptName.startsWith("/"))) {
+    if (runningWindows && (scriptName.startsWith("\\") || scriptName.startsWith("/"))) {
       scriptName = new File(scriptName).getAbsolutePath();
       return scriptName;
     }
@@ -1093,10 +1072,8 @@ java.desktop/sun.awt=ALL-UNNAMED
   }
 
   public static long getElapsedStart() {
-    return elapsedStart;
+    return started;
   }
-
-  private static long elapsedStart = new Date().getTime();
 
   public static String getLogFile() {
     return logFile;
@@ -1189,8 +1166,6 @@ java.desktop/sun.awt=ALL-UNNAMED
     Debug.setStartWithTrace();
   }
 
-  private static boolean verbose = false;
-
   public static boolean isQuiet() {
     return quiet;
   }
@@ -1201,36 +1176,12 @@ java.desktop/sun.awt=ALL-UNNAMED
 
   private static boolean quiet = false;
 
-  public static void startLog(int level, String msg, Object... args) {
-    String typ = runningAsIDE ? "IDE" : "API";
-    String msgShow = String.format("startUp: %s: ", typ);
-    if (!isVerbose()) {
-      return;
-    }
-    if (level < 0) {
-      msgShow = "[ERROR]" + msgShow + msg;
-      System.out.println(String.format(msgShow, args));
-      return;
-    }
-    if (isQuiet()) {
-      return;
-    }
-    if (isVerbose()) {
-      if (level > 0) {
-        msgShow = "[DEBUG]" + msgShow + msg;
-      } else {
-        msgShow = "[INFO]" + msgShow + msg;
-      }
-      System.out.println(String.format(msgShow, args));
-    }
-  }
-
   private static void log(int level, String message, Object... args) {
-    Debug.logx(level, "RunTime:" + message, args);
+    Debug.logx(level, "RunTime: " + message, args);
   }
 
   private static void logp(String message, Object... args) {
-    Debug.logx(-3, message, args);
+    Debug.logp(message, args);
   }
 
   private static void logp(int level, String message, Object... args) {
@@ -1240,23 +1191,11 @@ java.desktop/sun.awt=ALL-UNNAMED
   }
   //</editor-fold>
 
-  //<editor-fold defaultstate="collapsed" desc="09 Sikulix options handling">
-  void initSikulixOptions() {
-  }
-
-  public static Options options() {
-    return sxOptions;
-  }
-
-  private static Options sxOptions = null;
-  //</editor-fold>
-
   //<editor-fold defaultstate="collapsed" desc="11 libs handling">
-  boolean areLibsExported = false;
-  private Map<String, Boolean> libsLoaded = new HashMap<String, Boolean>();
+  private static Map<String, Boolean> libsLoaded = new HashMap<String, Boolean>();
 
-  private void addToWindowsSystemPath(File fLibsFolder) {
-    for (File bridjFile : runTime.fTempPath.listFiles(new FilenameFilter() {
+  private static void addToWindowsSystemPath(File fLibsFolder) {
+    for (File bridjFile : fTempPath.listFiles(new FilenameFilter() {
       @Override
       public boolean accept(File dir, String name) {
         if (name.contains("BridJExtractedLibraries")) {
@@ -1265,7 +1204,7 @@ java.desktop/sun.awt=ALL-UNNAMED
         return false;
       }
     })) {
-      runTime.log(4, "cleanTemp: " + bridjFile.getName());
+      log(4, "cleanTemp: " + bridjFile.getName());
       FileManager.deleteFileOrFolder(bridjFile);
     }
     //TODO String syspath = SysJNA.WinKernel32.getEnvironmentVariable("PATH");
@@ -1287,7 +1226,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     }
   }
 
-  private boolean checkJavaUsrPath(File fLibsFolder) {
+  private static boolean checkJavaUsrPath(File fLibsFolder) {
     //TODO Java 9: Windows: Java Classloader::usr_paths needed for libs access?
     if (isJava9()) {
       return true;
@@ -1332,19 +1271,14 @@ java.desktop/sun.awt=ALL-UNNAMED
     return false;
   }
 
-  /**
-   * INTERNAL USE: load a native library from the libs folder
-   *
-   * @param libname name of library without prefix/suffix/ending
-   */
   public static boolean loadLibrary(String libname) {
-    if (isTerminating) {
+    if (isShutDown) {
       return false;
     }
-    return RunTime.get().libsLoad(libname);
+    return libsLoad(libname);
   }
 
-  private boolean libsLoad(String libName) {
+  private static boolean libsLoad(String libName) {
     log(lvl, "loadlib: trying %s", libName);
     String msg = "loadLib: %s";
     if (!areLibsExported) {
@@ -1388,7 +1322,7 @@ java.desktop/sun.awt=ALL-UNNAMED
       }
     } catch (Exception e) {
       log(-1, "not usable: %s", e.getMessage());
-      terminate(999, "problem with native library: " + libName);
+      throw new SikuliXception(String.format("problem with native library: %s", libName));
     } catch (UnsatisfiedLinkError e) {
       log(-1, msg + " (failed) probably dependent libs missing:\n%s", libName, e.getMessage());
       String helpURL = "https://github.com/RaiMan/SikuliX1/wiki/macOS-Linux:-Support-Libraries-for-OpenCV-4";
@@ -1401,20 +1335,14 @@ java.desktop/sun.awt=ALL-UNNAMED
         }
       }
       Debug.error("see: " + helpURL);
-      terminate(999, "problem with native library: " + libName);
+      throw new SikuliXception(String.format("problem with native library: %s", libName));
     }
     libsLoaded.put(libName, true);
     log(level, msg + " (success)", libName);
     return true;
   }
 
-  private static boolean didExport = false;
-
-  public static boolean shouldExport() {
-    return didExport;
-  }
-
-  private void libsExport() {
+  private static void libsExport() {
 /*
     remove obsolete libs folders in Temp
 */
@@ -1487,7 +1415,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     if (!fLibsFolder.exists()) {
       fLibsFolder.mkdirs();
       if (!fLibsFolder.exists()) {
-        throw new SikuliXception("libsExport: folder not available: " + fLibsFolder.toString());
+        throw new SikuliXception(String.format("[ERROR] libsExport: folder not available: %s", fLibsFolder));
       }
       String libToken = String.format("%s_%s_MadeForSikuliX64%s.txt",
           sikulixVersionShort, buildStamp, runningMac ? "M" : (runningWindows ? "W" : "L"));
@@ -1533,21 +1461,30 @@ java.desktop/sun.awt=ALL-UNNAMED
       if (!checkJavaUsrPath(fLibsFolder)) {
         log(-1, "Problems setting up on Windows - see errors - might not work and crash later");
       }
+      //TODO: Windows: jawt.dll needed?
       String lib = "jawt.dll";
-      File fJawtDll = new File(fLibsFolder, lib);
-      FileManager.deleteFileOrFolder(fJawtDll);
-      FileManager.xcopy(new File(sysPropJavaHome, "bin/" + lib), fJawtDll);
-      if (!fJawtDll.exists()) {
-        throw new SikuliXception("problem copying " + fJawtDll);
+      File ftoJawtDll = new File(fLibsFolder, lib);
+      FileManager.deleteFileOrFolder(ftoJawtDll);
+      File fFromJawtDll = new File(sysPropJavaHome, "bin/" + lib);
+      FileManager.xcopy(fFromJawtDll, ftoJawtDll);
+      if (!ftoJawtDll.exists()) {
+        throw new SikuliXception(String.format("[ERROR] problem copying %s", fFromJawtDll));
       }
     }
     log(lvl, "libsExport: " + libMsg + " %s (%s - %s)", fLibsFolder, sikulixVersionShort, buildStamp);
     areLibsExported = true;
   }
 
+  private static boolean areLibsExported = false;
+  private static boolean didExport = false;
+
+  public static boolean shouldExport() {
+    return didExport;
+  }
+
   private static boolean isLibExported = false;
 
-  public void exportLib() {
+  public static void exportLib() {
     if (isLibExported) {
       return;
     }
@@ -1559,7 +1496,7 @@ java.desktop/sun.awt=ALL-UNNAMED
       extractResourcesToFolder("Lib/sikuli", new File(fSikulixLib, "sikuli"), null);
     }
     // RFW support: module robot should no longer be here (2.1.0)
-    File fLibRobot = new File(RunTime.get().fSikulixLib, "robot");
+    File fLibRobot = new File(fSikulixLib, "robot");
     if (fLibRobot.exists()) {
       FileManager.deleteFileOrFolder(fLibRobot);
     }
@@ -1621,7 +1558,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param artefact the identifying string
    * @return the absolute path of the entry found - null if not found
    */
-  private String isOnClasspath(String artefact, boolean isJar) {
+  private static String isOnClasspath(String artefact, boolean isJar) {
     artefact = FileManager.slashify(artefact, false);
     String cpe = null;
     if (classPathList.isEmpty()) {
@@ -1648,15 +1585,15 @@ java.desktop/sun.awt=ALL-UNNAMED
     return cpe;
   }
 
-  public String isJarOnClasspath(String artefact) {
+  public static String isJarOnClasspath(String artefact) {
     return isOnClasspath(artefact, true);
   }
 
-  public String isOnClasspath(String artefact) {
+  public static String isOnClasspath(String artefact) {
     return isOnClasspath(artefact, false);
   }
 
-  public URL fromClasspath(String artefact) {
+  public static URL fromClasspath(String artefact) {
     artefact = FileManager.slashify(artefact, false).toUpperCase();
     URL cpe = null;
     String scpe = null;
@@ -1685,7 +1622,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param path URL to look for
    * @return true if found else otherwise
    */
-  public boolean isOnClasspath(URL path) {
+  public static boolean isOnClasspath(URL path) {
     if (classPathActual.isEmpty()) {
       storeClassPath();
     }
@@ -1694,13 +1631,13 @@ java.desktop/sun.awt=ALL-UNNAMED
     return false;
   }
 
-  List<String> sxClasspath = new ArrayList<>();
+  private static List<String> sxClasspath = new ArrayList<>();
 
-  public boolean addToClasspath(String jarOrFolder) {
+  public static boolean addToClasspath(String jarOrFolder) {
     return addToClasspath(jarOrFolder, "");
   }
 
-  public boolean addToClasspath(String jarOrFolder, String caller) {
+  public static boolean addToClasspath(String jarOrFolder, String caller) {
     if (null != isOnClasspath(jarOrFolder)) {
       return true;
     }
@@ -1729,14 +1666,14 @@ java.desktop/sun.awt=ALL-UNNAMED
     return false;
   }
 
-  public File asExtension(String fpJar) {
+  public static File asExtension(String fpJar) {
     File fJarFound = new File(FileManager.normalizeAbsolute(fpJar));
     if (!fJarFound.exists()) {
-      String fpCPEntry = runTime.isOnClasspath(fJarFound.getName());
+      String fpCPEntry = isOnClasspath(fJarFound.getName());
       if (fpCPEntry == null) {
-        fJarFound = new File(runTime.fSikulixExtensions, fpJar);
+        fJarFound = new File(fSikulixExtensions, fpJar);
         if (!fJarFound.exists()) {
-          fJarFound = new File(runTime.fSikulixLib, fpJar);
+          fJarFound = new File(fSikulixLib, fpJar);
           if (!fJarFound.exists()) {
             fJarFound = null;
           }
@@ -1762,8 +1699,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param filter       implementation of interface FilenameFilter or null for no filtering
    * @return the filtered list of files (compact sikulixcontent format)
    */
-
-  public List<String> extractResourcesToFolder(String fpRessources, File fFolder, FilenameFilter filter) {
+  public static List<String> extractResourcesToFolder(String fpRessources, File fFolder, FilenameFilter filter) {
     List<String> content;
     content = resourceList(fpRessources, filter);
     if (content == null) {
@@ -1775,7 +1711,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return doExtractToFolderWithList(fpRessources, fFolder, content);
   }
 
-  public List<String> doExtractToFolderWithList(String fpRessources, File fFolder, List<String> content) {
+  public static List<String> doExtractToFolderWithList(String fpRessources, File fFolder, List<String> content) {
     int count = 0;
     int ecount = 0;
     String subFolder = "";
@@ -1816,7 +1752,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param filter       implementation of interface FilenameFilter or null for no filtering
    * @return the filtered list of files (compact sikulixcontent format)
    */
-  public List<String> extractResourcesToFolderFromJar(String aJar, String fpRessources, File fFolder, FilenameFilter
+  public static List<String> extractResourcesToFolderFromJar(String aJar, String fpRessources, File fFolder, FilenameFilter
       filter) {
     List<String> content = new ArrayList<String>();
     File faJar = new File(aJar);
@@ -1863,7 +1799,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param outDir   a folder where to export
    * @return success
    */
-  public boolean extractResourceToFile(String inPrefix, String inFile, File outDir) {
+  public static boolean extractResourceToFile(String inPrefix, String inFile, File outDir) {
     return extractResourceToFile(inPrefix, inFile, outDir, "");
   }
 
@@ -1876,7 +1812,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param outFile  the filename for export
    * @return success
    */
-  public boolean extractResourceToFile(String inPrefix, String inFile, File outDir, String outFile) {
+  public static boolean extractResourceToFile(String inPrefix, String inFile, File outDir, String outFile) {
     InputStream aIS;
     FileOutputStream aFileOS;
     String content = inPrefix + "/" + inFile;
@@ -1916,7 +1852,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param encoding
    * @return file content
    */
-  public String extractResourceToString(String inPrefix, String inFile, String encoding) {
+  public static String extractResourceToString(String inPrefix, String inFile, String encoding) {
     InputStream aIS = null;
     String out = null;
     String content = inPrefix + "/" + inFile;
@@ -1959,7 +1895,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return runTimeClass.getResource(folderOrFile);
   }
 
-  private List<String> resourceList(String folder, FilenameFilter filter) {
+  private static List<String> resourceList(String folder, FilenameFilter filter) {
     List<String> files = new ArrayList<String>();
     if (!folder.startsWith("/")) {
       folder = "/" + folder;
@@ -2018,7 +1954,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param filter implementation of interface FilenameFilter or null for no filtering
    * @return success
    */
-  public String[] resourceListAsFile(String folder, File target, FilenameFilter filter) {
+  public static String[] resourceListAsFile(String folder, File target, FilenameFilter filter) {
     String content = resourceListAsString(folder, filter);
     if (content == null) {
       log(-1, "resourceListAsFile: did not work: %s", folder);
@@ -2048,7 +1984,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param filter       implementation of interface FilenameFilter or null for no filtering
    * @return success
    */
-  public String[] resourceListAsSikulixContent(String folder, File targetFolder, FilenameFilter filter) {
+  public static String[] resourceListAsSikulixContent(String folder, File targetFolder, FilenameFilter filter) {
     List<String> contentList = resourceList(folder, filter);
     if (contentList == null) {
       log(-1, "resourceListAsSikulixContent: did not work: %s", folder);
@@ -2091,7 +2027,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param filter       implementation of interface FilenameFilter or null for no filtering
    * @return success
    */
-  public String[] resourceListAsSikulixContentFromJar(String aJar, String folder, File targetFolder, FilenameFilter
+  public static String[] resourceListAsSikulixContentFromJar(String aJar, String folder, File targetFolder, FilenameFilter
       filter) {
     List<String> contentList = extractResourcesToFolderFromJar(aJar, folder, null, filter);
     if (contentList == null || contentList.size() == 0) {
@@ -2132,7 +2068,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param filter implementation of interface FilenameFilter or null for no filtering
    * @return the resulting string
    */
-  public String resourceListAsString(String folder, FilenameFilter filter) {
+  public static String resourceListAsString(String folder, FilenameFilter filter) {
     return resourceListAsString(folder, filter, null);
   }
 
@@ -2145,7 +2081,7 @@ java.desktop/sun.awt=ALL-UNNAMED
    * @param separator to be used to separate the entries
    * @return the resulting string
    */
-  public String resourceListAsString(String folder, FilenameFilter filter, String separator) {
+  public static String resourceListAsString(String folder, FilenameFilter filter, String separator) {
     List<String> aList = resourceList(folder, filter);
     if (aList == null) {
       return null;
@@ -2173,7 +2109,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return out;
   }
 
-  private List<String> doResourceListFolder(File fFolder, List<String> files, FilenameFilter filter) {
+  private static List<String> doResourceListFolder(File fFolder, List<String> files, FilenameFilter filter) {
     int localLevel = testing ? lvl : lvl + 1;
     String subFolder = "";
     if (fFolder.isDirectory()) {
@@ -2206,7 +2142,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return files;
   }
 
-  public List<String> doResourceListWithList(String folder, List<String> files, FilenameFilter filter) {
+  public static List<String> doResourceListWithList(String folder, List<String> files, FilenameFilter filter) {
     String content = extractResourceToString(folder, fpContent, "");
     String[] contentList = content.split(content.indexOf("\r") != -1 ? "\r\n" : "\n");
     if (filter == null) {
@@ -2221,7 +2157,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return files;
   }
 
-  private List<String> doResourceListJar(URL uJar, String fpResource, List<String> files, FilenameFilter filter) {
+  private static List<String> doResourceListJar(URL uJar, String fpResource, List<String> files, FilenameFilter filter) {
     ZipInputStream zJar;
     String fpJar = uJar.getPath().split("!")[0];
     int localLevel = testing ? lvl : lvl + 1;
@@ -2288,7 +2224,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return files;
   }
 
-  public List<String> listFilesInJar(URL uJar) {
+  public static List<String> listFilesInJar(URL uJar) {
     ZipInputStream zJar;
     String fpJar = uJar.getPath().split("!")[0];
     int localLevel = testing ? lvl : lvl + 1;
@@ -2316,7 +2252,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return files;
   }
 
-  private boolean copyFromJarToFolderWithList(URL uJar, String fpRessource, List<String> files, File fFolder) {
+  private static boolean copyFromJarToFolderWithList(URL uJar, String fpRessource, List<String> files, File fFolder) {
     if (files == null || files.isEmpty()) {
       log(lvl, "copyFromJarToFolderWithList: list of files is empty");
       return false;
@@ -2416,7 +2352,7 @@ java.desktop/sun.awt=ALL-UNNAMED
     return baos.toByteArray();
   }
 
-  public class oneFileFilter implements FilenameFilter {
+  public static class oneFileFilter implements FilenameFilter {
 
     String aFile;
 
@@ -2580,17 +2516,18 @@ java.desktop/sun.awt=ALL-UNNAMED
   public static String[] getSplashInfo() {
     return new String[]{sikulixVersion, "" + javaVersion};
   }
-  public int getLastScriptRunReturnCode() {
+
+  public static int getLastScriptRunReturnCode() {
     return lastScriptRunReturnCode;
   }
 
-  public void setLastScriptRunReturnCode(int lastScriptRunReturnCode) {
-    this.lastScriptRunReturnCode = lastScriptRunReturnCode;
+  public static void setLastScriptRunReturnCode(int lastScriptRunReturnCode) {
+    RunTime.lastScriptRunReturnCode = lastScriptRunReturnCode;
   }
 
-  private int lastScriptRunReturnCode = 0;
+  private static int lastScriptRunReturnCode = 0;
 
-  public void crash() {
+  public static void crash() {
     int x = 1 / 0;
   }
 
@@ -2628,9 +2565,7 @@ java.desktop/sun.awt=ALL-UNNAMED
   }
 
   public static void show() {
-    if (sxOptions != null && sxOptions.hasOptions()) {
-      sxOptions.dumpOptions();
-    }
+    SX.dumpOptions();
     logp("***** show environment for %s %s", sikulixVersionLong, runType);
     logp("user.home: %s", getUserHome());
     logp("user.dir (work dir): %s", getWorkDir());
@@ -2790,7 +2725,6 @@ java.desktop/sun.awt=ALL-UNNAMED
   /**
    * print the current java system properties key-value pairs sorted by key
    */
-
   public static void dumpSysProps() {
     dumpSysProps(null);
   }
@@ -2835,16 +2769,17 @@ java.desktop/sun.awt=ALL-UNNAMED
       System.out.println("TERMINATING: " + outMsg);
     }
     if (retval < 999) {
-      isTerminating = true;
-      cleanUp();
+      if (!hasShutDown) {
+        cleanUp();
+      }
       System.exit(retval);
     }
     throw new SikuliXception(String.format("fatal: " + outMsg));
   }
 
   public static void cleanUp() {
-    if (!isTerminating) {
-      runTime.log(3, "***** running cleanUp *****");
+    if (!isShutDown) {
+      log(3, "***** running cleanUp *****");
       Highlight.closeAll();
       Settings.DefaultHighlightColor = "RED";
       Settings.DefaultHighlightTime = 2.0f;
@@ -2855,45 +2790,49 @@ java.desktop/sun.awt=ALL-UNNAMED
 
     try {
       VNCScreen.stopAll();
-      ExtensionManager.invokeStatic("ADBScreen.stop");
+      Extensions.invokeStatic("ADBScreen.stop");
     } catch (Exception e) {
-      Debug.info("Error while stopping VNCScreen: %s", e.getMessage());
+      Debug.info("Error while stopping VNCScreen/ADBScreen: %s", e.getMessage());
     }
 
     Observing.cleanUp();
-    HotkeyManager.reset(isTerminating);
+    HotkeyManager.reset(isShutDown);
     if (null != cleanupRobot) {
       cleanupRobot.keyUp();
     }
     Mouse.reset();
-    if (isTerminating) {
+    if (isShutDown) {
       stopPythonServer();
+      SX.closeOptions();
     }
   }
 
+  private static boolean isShutDown = false;
+  private static boolean hasShutDown = false;
+
   private static void runShutdownHook() {
-    isTerminating = true;
+    isShutDown = true;
     if (Debug.isStartWithTrace()) {
       Debug.on(3);
       Debug.globalTraceOn();
     }
-    runTime.log(runTime.lvl, "***** final cleanup at System.exit() *****");
+    log(lvl, "***** final cleanup at System.exit() *****");
     cleanUp();
 
-    if (runTime.isRunning != null) {
+    if (isRunning != null) {
       try {
-        runTime.isRunningFile.close();
+        isRunningFile.close();
       } catch (IOException ex) {
       }
-      runTime.isRunning.delete();
+      isRunning.delete();
     }
 
-    for (File f : runTime.fTempPath.listFiles(new FilenameFilter() {
+    for (File f : fTempPath.listFiles(new FilenameFilter() {
       @Override
       public boolean accept(File dir, String name) {
         if (name.toLowerCase().contains("sikuli")) {
           if (name.contains("Sikulix_")) {
-            if (isObsolete(new File(dir, name).lastModified()) || name.equals(runTime.fBaseTempPath.getName())) {
+            if (isObsolete(new File(dir, name).lastModified()) || name.equals(fBaseTempPath.getName())) {
               return true;
             }
           } else {
@@ -2903,7 +2842,7 @@ java.desktop/sun.awt=ALL-UNNAMED
         return false;
       }
     })) {
-      runTime.log(4, "cleanTemp: " + f.getName());
+      log(4, "cleanTemp: " + f.getName());
       FileManager.deleteFileOrFolder(f.getAbsolutePath());
     }
   }

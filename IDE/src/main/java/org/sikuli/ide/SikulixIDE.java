@@ -50,7 +50,7 @@ public class SikulixIDE extends JFrame {
       SikulixIDE.class.getResource("/icons/sikulix.png"));
 
   public static void main(String[] args) {
-
+    RunTime.evalArgsStart(args);
     RunTime.afterStart("IDE", args);
 
     if ("m".equals(System.getProperty("os.name").substring(0, 1).toLowerCase())) {
@@ -556,6 +556,7 @@ public class SikulixIDE extends JFrame {
       return true;
     }
     log(-1, "restoreScriptFromSession: Can't load: %s", file);
+    tabs.remove(tabs.getSelectedIndex());
     return false;
   }
   //</editor-fold>
@@ -564,7 +565,7 @@ public class SikulixIDE extends JFrame {
   void terminate() {
     log(lvl, "Quit requested");
     if (closeIDE()) {
-      RunTime.terminate(0, "");
+      RunTime.terminate();
     }
     log(-1, "Quit: cancelled or did not work");
   }
@@ -820,15 +821,15 @@ public class SikulixIDE extends JFrame {
   void openSpecial() {
     log(lvl, "Open Special requested");
     Map<String, String> specialFiles = new Hashtable<>();
-    specialFiles.put("1 SikuliX Global Options", RunTime.options().getOptionsFile());
-    File extensionsFile = ExtensionManager.getExtensionsFile();
+    specialFiles.put("1 SikuliX Global Options", SX.getOptionsFile().getAbsolutePath());
+    File extensionsFile = Extensions.getExtensionsFile();
     specialFiles.put("2 SikuliX Extensions Options", extensionsFile.getAbsolutePath());
-    File sitesTxt = ExtensionManager.getSitesTxt();
+    File sitesTxt = Extensions.getSitesTxt();
     specialFiles.put("3 SikuliX Additional Sites", sitesTxt.getAbsolutePath());
     String[] defaults = new String[specialFiles.size()];
-    defaults[0] = Options.getOptionsFileDefault();
-    defaults[1] = ExtensionManager.getExtensionsFileDefault();
-    defaults[2] = ExtensionManager.getSitesTxtDefault();
+    defaults[0] = Options.getDefaultContent();
+    defaults[1] = Extensions.getExtensionsFileDefault();
+    defaults[2] = Extensions.getSitesTxtDefault();
     String msg = "";
     int num = 1;
     String[] files = new String[specialFiles.size()];
@@ -1655,7 +1656,7 @@ public class SikulixIDE extends JFrame {
         null,
         new ToolAction(ToolAction.EXTENSIONS)));
 
-    if (ExtensionManager.hasAndroidSupport()) {
+    if (Extensions.hasAndroidSupport()) {
       _toolMenu.add(createMenuItem(_I("menuToolAndroid"),
           null,
           new ToolAction(ToolAction.ANDROID)));
@@ -1676,12 +1677,12 @@ public class SikulixIDE extends JFrame {
     }
 
     public void extensions(ActionEvent ae) {
-      ExtensionManager.show();
+      Extensions.show();
     }
 
     public void android(ActionEvent ae) {
       SikulixIDE.hideIDE();
-      defaultScreen = (IScreen) ExtensionManager.androidFromIDE();
+      defaultScreen = (IScreen) Extensions.androidFromIDE();
       SikulixIDE.showIDE();
     }
   }
@@ -2410,7 +2411,7 @@ public class SikulixIDE extends JFrame {
           } finally {
             setCurrentRunner(null);
             setCurrentScript(null);
-            RunTime.get().setLastScriptRunReturnCode(exitValue);
+            RunTime.setLastScriptRunReturnCode(exitValue);
           }
 
           log(4, "************** after RunScript");

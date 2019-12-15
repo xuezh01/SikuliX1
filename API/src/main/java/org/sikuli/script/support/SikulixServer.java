@@ -211,7 +211,7 @@ public class SikulixServer {
     // evaluate startup option -s
     evalServerOptions(RunTime.getServerOptions());
     if (null != RunTime.asFile(serverIP)) {
-      RunTime.startLog(3, "server (-s): %s is a file", serverIP);
+      dolog(3, "server (-s): %s is a file", serverIP);
       String[] serverOptions = FileManager.readFileToString(RunTime.asFile(serverIP)).split("\n");
       serverIP = serverIPdefault;
       for (String line : serverOptions) {
@@ -220,10 +220,10 @@ public class SikulixServer {
         line = line.trim();
         evalServerOptions(new String[]{line});
         serverListenAt.add(Pair.of(serverIP, serverPort));
-        RunTime.startLog(3, "server (-s): from file: %s:%d", serverIP, serverPort);
+        dolog(3, "server (-s): from file: %s:%d", serverIP, serverPort);
       }
     } else {
-      RunTime.startLog(3, "server (-s): %s:%s -> %s:%d", serverOption1, serverOption2, serverIP, serverPort);
+      dolog(3, "server (-s): %s:%s -> %s:%d", serverOption1, serverOption2, serverIP, serverPort);
     }
     int port = serverPort;
     String theIP = serverIP;

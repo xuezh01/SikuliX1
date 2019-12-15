@@ -4,6 +4,7 @@
 package org.sikuli.script.runners;
 
 import org.sikuli.basics.Debug;
+import org.sikuli.script.SX;
 import org.sikuli.script.Sikulix;
 import org.sikuli.script.runnerSupport.JythonSupport;
 import org.sikuli.script.support.IScriptRunner;
@@ -25,8 +26,6 @@ public class JythonRunner extends AbstractLocalFileScriptRunner {
   public static final String TYPE = "text/jython";
   public static final String[] EXTENSIONS = new String[]{"py"};
 
-  private static RunTime runTime = RunTime.get();
-
   private int lvl = 3;
 
   /**
@@ -34,6 +33,9 @@ public class JythonRunner extends AbstractLocalFileScriptRunner {
    */
   @Override
   public boolean isSupported() {
+    if (!SX.isOption("jython", true)) {
+      return false;
+    }
     //TODO JythonSupport to be revised (no side effects, if Jython not available): return JythonSupport.isSupported();
     try {
       Class.forName("org.python.util.PythonInterpreter");

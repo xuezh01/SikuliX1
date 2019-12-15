@@ -17,14 +17,9 @@ import org.sikuli.script.support.RunTime;
  */
 public class SikulixForJython {
 
-  private static SikulixForJython instance = null;
   private static final int lvl = 3;
 
   static {
-    staticInit();
-  }
-
-  static void staticInit() {
     JythonSupport helper = JythonSupport.get();
     helper.log(lvl, "SikulixForJython: init: starting");
     String sikuliStuff = "sikuli/Sikuli";
@@ -35,17 +30,14 @@ public class SikulixForJython {
       URL uSikuliStuff = RunTime.resourceLocation(libSikuli);
       if (uSikuliStuff == null) {
         RunTime.dumpClassPath();
-        //helper.terminate(999, "no suitable sikulix...jar on classpath");
-        throw new SikuliXception(String.format("fatal: " + "Jython: " + "no suitable sikulix...jar on classpath"));
+        RunTime.terminate(999,"Jython: no suitable sikulix...jar on classpath");
       }
       fpSikuliStuff = RunTime.getSikulixLib().getAbsolutePath();
       if (!helper.hasSysPath(fpSikuliStuff)) {
         helper.log(lvl, "sikuli/*.py not found on current Jython::sys.path");
         helper.addSysPath(fpSikuliStuff);
         if (!helper.hasSysPath(fpSikuliStuff)) {
-          //helper.terminate(999, "not possible to add to Jython::sys.path: %s", fpSikuliStuff);
-          throw new SikuliXception(String.format("fatal: " + "Jython: " +
-                  "not possible to add to Jython::sys.path: %s", fpSikuliStuff));
+          RunTime.terminate(999,"Jython: not possible to add to Jython::sys.path: %s", fpSikuliStuff);
         }
         helper.log(lvl, "added as Jython::sys.path[0]:\n%s", fpSikuliStuff);
       } else {
@@ -68,10 +60,6 @@ public class SikulixForJython {
   SikulixForJython() {
   }
 
-  public static SikulixForJython get() {
-    if (null == instance) {
-      instance = new SikulixForJython();
-    }
-    return instance;
+  public static void init() {
   }
 }

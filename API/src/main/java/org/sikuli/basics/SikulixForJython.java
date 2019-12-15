@@ -10,6 +10,6 @@ package org.sikuli.basics;
 public class SikulixForJython {
 
   static {
-    org.sikuli.script.SikulixForJython.get();
+    org.sikuli.script.SikulixForJython.init();
   }
 }

@@ -24,8 +24,6 @@ public class JavaScriptRunner extends AbstractLocalFileScriptRunner {
   public static final String TYPE = "text/javascript";
   public static final String[] EXTENSIONS = new String[]{"js"};
 
-  private static final RunTime RUN_TIME = RunTime.get();
-
   private static String BEFORE_JS_JAVA_8 = "load(\"nashorn:mozilla_compat.js\");";
   private static String BEFORE_JS
       = "importPackage(Packages.org.sikuli.script); "
@@ -48,7 +46,7 @@ public class JavaScriptRunner extends AbstractLocalFileScriptRunner {
     String prolog = "";
     prolog += BEFORE_JS_JAVA_8;
     prolog += BEFORE_JS;
-    prolog += RUN_TIME.extractResourceToString("JavaScript", "commands.js", "");
+    prolog += RunTime.extractResourceToString("JavaScript", "commands.js", "");
     try {
       engine.eval(prolog);
     } catch (ScriptException e) {

@@ -232,9 +232,9 @@ public class Runner {
         } else {
           log(3, "runscript: running script: %s", scriptGiven);
           IScriptRunner runner = getRunner(scriptGiven);
-          RunTime.get().setLastScriptRunReturnCode(0);
+          RunTime.setLastScriptRunReturnCode(0);
           exitCode = runner.runScript(scriptGiven, args, options);
-          RunTime.get().setLastScriptRunReturnCode(exitCode);
+          RunTime.setLastScriptRunReturnCode(exitCode);
         }
         if (exitCode != 0) {
           if (exitCode == FILE_NOT_FOUND) {

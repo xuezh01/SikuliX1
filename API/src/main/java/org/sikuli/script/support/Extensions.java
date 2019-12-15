@@ -23,13 +23,17 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public class ExtensionManager {
+public class Extensions {
+
+  private static void log(int level, String message, Object... args) {
+    Debug.logx(level, "Extensions: " + message, args);
+  }
 
   private static File sxExtensions = new File(RunTime.getAppDataFolder(), "Extensions");
 
   //<editor-fold desc="10 basic handling">
   public static String makeClassPath(File jarFile) {
-    RunTime.startLog(1, "starting");
+    log(3, "starting");
     String jarPath = jarFile.getAbsolutePath();
     if (!classPath.isEmpty()) {
       classPath += File.pathSeparator;
@@ -75,9 +79,9 @@ public class ExtensionManager {
       for (File fJar : sxFolderList) {
         try {
           Files.move(fJar.toPath(), sxExtensions.toPath().resolve(fJar.toPath().getFileName()), StandardCopyOption.REPLACE_EXISTING);
-          RunTime.startLog(1, "moving to extensions: %s", fJar);
+          log(3, "moving to extensions: %s", fJar);
         } catch (IOException e) {
-          RunTime.startLog(-1, "moving to extensions: %s (%s)", fJar, e.getMessage());
+          log(-1, "moving to extensions: %s (%s)", fJar, e.getMessage());
         }
       }
     }
@@ -110,16 +114,16 @@ public class ExtensionManager {
           continue;
         }
         classPath += pExtension;
-        RunTime.startLog(1, "adding extension: %s", fExtension);
+        log(3, "adding extension: %s", fExtension);
       }
     }
     if (!jythonReady && !jrubyReady) {
-      // https://github.com/RaiMan/SikuliX1/wiki/How-to-make-Jython-ready-in-the-IDE
-      String helpURL = "https://7i.fi/IDE-Jython";
-      String message = "Neither Jython nor JRuby available" +
-              "\nPlease consult the docs for a solution.\n" +
-              "\nIDE might not be useable with JavaScript only";
-      if (RunTime.isIDE()) {
+      if (RunTime.isIDE() && !RunTime.isTesting()) {
+        // https://github.com/RaiMan/SikuliX1/wiki/How-to-make-Jython-ready-in-the-IDE
+        String helpURL = "https://7i.fi/IDE-Jython";
+        String message = "Neither Jython nor JRuby available" +
+            "\nPlease consult the docs for a solution.\n" +
+            "\nIDE might not be useable with JavaScript only";
         JOptionPane.showMessageDialog(null,
                 message + "\n\nClick OK to get more help in a browser window",
                 "IDE startup problem",
@@ -129,6 +133,8 @@ public class ExtensionManager {
         } catch (IOException ex) {
         } catch (URISyntaxException ex) {
         }
+      } else {
+        log(-1, "Neither Jython nor JRuby available");
       }
     }
     return classPath;
@@ -153,17 +159,17 @@ public class ExtensionManager {
 
     if (sxExtensionsFileContent.size() == 0) {
       if (!afterStart) {
-        RunTime.startLog(1, "no extensions.txt nor valid content");
+        log(3, "no extensions.txt nor valid content");
       }
       return;
     }
 
     if (!afterStart) {
-      RunTime.startLog(1, "*** Extensions:");
+      log(3, "*** Extensions:");
     }
     for (String line : sxExtensionsFileContent) {
       if (!afterStart) {
-        RunTime.startLog(1, "%s", line);
+        log(3, "%s", line);
       }
       String token = "";
       String extPath = line;
@@ -190,14 +196,14 @@ public class ExtensionManager {
           }
           if (extFile.isAbsolute()) {
             if (extFile.exists()) {
-              RunTime.startLog(1, "Python available at: %s", extPath);
+              log(3, "Python available at: %s", extPath);
               python = extPath;
             }
           } else {
             String runOut = ProcessRunner.run(extPath, "-V");
             if (runOut.startsWith("0\n")) {
               python = extPath;
-              RunTime.startLog(1, "Python available as command: %s (%s)", extPath, runOut.substring(2));
+              log(3, "Python available as command: %s (%s)", extPath, runOut.substring(2));
             }
           }
           continue;
@@ -207,7 +213,7 @@ public class ExtensionManager {
             classPath += File.pathSeparator;
           }
           classPath += extPath;
-          RunTime.startLog(1, "adding extension: %s", extPath);
+          log(3, "adding extension: %s", extPath);
         }
       }
     }
@@ -324,7 +330,7 @@ public class ExtensionManager {
   }
 
   public static void setJythonExtern(boolean jythonExtern) {
-    ExtensionManager.jythonExtern = jythonExtern;
+    Extensions.jythonExtern = jythonExtern;
   }
 
   private static boolean jythonExtern = false;
@@ -386,7 +392,7 @@ public class ExtensionManager {
   }
 
   public static void setJrubyExtern(boolean jrubyExtern) {
-    ExtensionManager.jrubyExtern = jrubyExtern;
+    Extensions.jrubyExtern = jrubyExtern;
   }
 
   private static boolean jrubyExtern = false;
@@ -413,7 +419,7 @@ public class ExtensionManager {
     int WARNING_CANCEL = 2;
     int WARNING_ACCEPTED = 1;
     int WARNING_DO_NOTHING = 0;
-    IScreen aScr = (IScreen) ExtensionManager.invokeStatic("ADBScreen.start");
+    IScreen aScr = (IScreen) Extensions.invokeStatic("ADBScreen.start");
     String message = aScr.isValidWithMessage();
     String title = "Android Support - !!EXPERIMENTAL!!";
     if (message.isEmpty()) {
@@ -431,17 +437,17 @@ public class ExtensionManager {
         Thread test = new Thread() {
           @Override
           public void run() {
-            ExtensionManager.invokeStatic("ADBTest.ideTest", aScr);
+            Extensions.invokeStatic("ADBTest.ideTest", aScr);
           }
         };
         test.start();
       }
       if (ret == WARNING_CANCEL || ret == JOptionPane.CLOSED_OPTION) {
-        ExtensionManager.invokeStatic("ADBScreen.stop");
+        Extensions.invokeStatic("ADBScreen.stop");
         return null;
       }
     } else {
-      ExtensionManager.invokeStatic("ADBScreen.stop");
+      Extensions.invokeStatic("ADBScreen.stop");
       Sikulix.popError(message, title);
       return null;
     }
@@ -551,11 +557,11 @@ public class ExtensionManager {
   //</editor-fold>
 
   //<editor-fold desc="99 old handling">
-  private static ExtensionManager _instance = null;
+  private static Extensions _instance = null;
   private ArrayList<Extension> extensions;
   private File fExtensions = null;
 
-  private ExtensionManager() {
+  private Extensions() {
     extensions = new ArrayList<Extension>();
     fExtensions = RunTime.getSikulixExtensions();
     Extension e;
@@ -577,9 +583,9 @@ public class ExtensionManager {
     }
   }
 
-  public static ExtensionManager getInstance() {
+  public static Extensions getInstance() {
     if (_instance == null) {
-      _instance = new ExtensionManager();
+      _instance = new Extensions();
     }
     return _instance;
   }

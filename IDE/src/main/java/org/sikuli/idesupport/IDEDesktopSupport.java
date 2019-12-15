@@ -91,7 +91,7 @@ public class IDEDesktopSupport implements InvocationHandler { //, AboutHandler, 
 //    }
 
     try {
-      if (RunTime.get().isJava9()) {
+      if (RunTime.isJava9()) {
         Class<?> clDesktop = Class.forName("java.awt.Desktop");
 
         if (Boolean.TRUE.equals(clDesktop.getMethod("isDesktopSupported").invoke(clDesktop))) {
@@ -240,7 +240,7 @@ public class IDEDesktopSupport implements InvocationHandler { //, AboutHandler, 
     } else if ("handleQuitRequestWith".equals(mName)) {
       try {
         Class<?> comMacQuitResponse;
-        if (RunTime.get().isJava9()) {
+        if (RunTime.isJava9()) {
           comMacQuitResponse = Class.forName("java.awt.desktop.QuitResponse");
         } else {
           comMacQuitResponse = Class.forName("com.apple.eawt.QuitResponse");

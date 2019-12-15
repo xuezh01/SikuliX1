@@ -34,7 +34,6 @@ public class Screen extends Region implements IScreen {
   static int mainMonitor = -1;
 
   static {
-    //initMonitors();
     if (!GraphicsEnvironment.isHeadless()) {
       GraphicsDevice[] gdevs = GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices();
       monitorCount = gdevs.length;

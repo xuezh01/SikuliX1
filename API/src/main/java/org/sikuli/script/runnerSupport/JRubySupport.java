@@ -36,7 +36,7 @@ public class JRubySupport implements IRunnerSupport {
   public static JRubySupport get() {
     if (null == instance) {
       instance = new JRubySupport();
-      RunTime.get().exportLib();
+      RunTime.exportLib();
       instance.interpreterInitialization();
     }
     return instance;

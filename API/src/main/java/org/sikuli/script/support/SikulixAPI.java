@@ -14,7 +14,7 @@ import java.io.File;
 public class SikulixAPI {
 
   public static void main(String[] args) {
-
+    RunTime.evalArgsStart(args);
     RunTime.afterStart("API", args);
 
     if (args.length == 2 && "test".equals(args[1])) {
@@ -41,10 +41,6 @@ public class SikulixAPI {
       }
       RunTime.terminate();
     }
-
-    RunTime runtime = RunTime.get();
-
-    TextRecognizer.start();
 
     System.out.println("SikuliX API: nothing to do");
     RunTime.terminate();

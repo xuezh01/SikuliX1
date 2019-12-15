@@ -1,5 +1,3 @@
-RUNTIME = RunTime.get();
-
 USEJSON = false;
 
 jsonOn = function() {

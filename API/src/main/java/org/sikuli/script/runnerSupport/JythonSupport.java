@@ -55,8 +55,6 @@ public class JythonSupport implements IRunnerSupport {
 
   private static PythonInterpreter interpreter = null;
 
-  private static RunTime runTime;
-
   private JythonSupport() {
   }
 
@@ -87,8 +85,7 @@ public class JythonSupport implements IRunnerSupport {
       Debug.log("Jython: not found on classpath");
       return;
     }
-    runTime = RunTime.get();
-    runTime.exportLib();
+    RunTime.exportLib();
     try {
       interpreter = new PythonInterpreter();
       cPyException = Class.forName("org.python.core.PyException");
@@ -905,7 +902,7 @@ public class JythonSupport implements IRunnerSupport {
 
   private String findErrorSourceWalkTrace(Matcher m, String filename) {
     Pattern pModule;
-    if (runTime.runningWindows) {
+    if (RunTime.runningWindows) {
       pModule = Pattern.compile(".*\\\\(.*?)\\.py");
     } else {
       pModule = Pattern.compile(".*/(.*?)\\.py");
@@ -957,7 +954,7 @@ public class JythonSupport implements IRunnerSupport {
   }
 
   public int runJar(String fpJarOrFolder, String imagePath) {
-    SikulixForJython.get();
+    SikulixForJython.init();
     String fpJar = load(fpJarOrFolder, true);
     ImagePath.addJar(fpJar, imagePath);
     String scriptName = new File(fpJar).getName().replace("_sikuli.jar", "");

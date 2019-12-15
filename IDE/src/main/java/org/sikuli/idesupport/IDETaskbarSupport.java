@@ -40,7 +40,7 @@ public class IDETaskbarSupport {
 //    }
 
     try {
-      if (RunTime.get().isJava9()) {
+      if (RunTime.isJava9()) {
         Class<?> clTaskbar = Class.forName("java.awt.Taskbar");
         Method isTaskbarSupported = clTaskbar.getMethod("isTaskbarSupported");
         Method getTaskbar = clTaskbar.getMethod("getTaskbar");
