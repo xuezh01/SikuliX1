@@ -749,8 +749,9 @@ java.desktop/sun.awt=ALL-UNNAMED
     init(type);
     Debug.log(3, "Sikulix: starting " + startType);
     if (isSandbox()) {
-      String javaTemp = new File(getAppDataFolder().getParent(), "SikulixJavaTemp").getAbsolutePath();
-      System.setProperty("java.io.tmpdir", javaTemp);
+      File javaTempFile = new File(getAppDataFolder().getParent(), "SikulixJavaTemp");
+      javaTempFile.mkdirs();
+      System.setProperty("java.io.tmpdir", javaTempFile.getAbsolutePath());
     }
     evalArgs(args);
     Extensions.readExtensions(true);

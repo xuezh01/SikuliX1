@@ -4,6 +4,11 @@
 
 package org.sikuli.script;
 
+import org.sikuli.basics.Debug;
+import org.sikuli.basics.Settings;
+import org.sikuli.script.support.RunTime;
+
+import javax.swing.*;
 import java.awt.EventQueue;
 import java.awt.GraphicsEnvironment;
 import java.awt.Point;
@@ -16,19 +21,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JTextArea;
-
-import org.sikuli.basics.Debug;
-import org.sikuli.basics.Settings;
-import org.sikuli.script.support.RunTime;
 
 public class SX {
 
@@ -166,7 +158,7 @@ public class SX {
               title = "Sikuli input request";
             }
             returnValue = JOptionPane.showInputDialog(frame, message, title,
-                JOptionPane.PLAIN_MESSAGE, null, null, preset);
+                    JOptionPane.PLAIN_MESSAGE, null, null, preset);
           } else {
             JTextArea messageText = new JTextArea(message);
             messageText.setColumns(20);
@@ -311,8 +303,8 @@ public class SX {
             }
           }
           if ("String".equals(clazz) || "Integer".equals(clazz) ||
-              "Double".equals(clazz) || "Boolean".equals(clazz) ||
-              "Element".equals(clazz) || "Region".equals(clazz)) {
+                  "Double".equals(clazz) || "Boolean".equals(clazz) ||
+                  "Element".equals(clazz) || "Region".equals(clazz)) {
             parameterTypes.put(names[n], clazz);
           }
         }
@@ -395,7 +387,7 @@ public class SX {
   public static void closeOptions() {
     if (null != sxOptions) {
       if (sxOptions.hasOptions()) {
-          sxOptions.save();
+        sxOptions.save();
       }
     }
   }
@@ -412,6 +404,7 @@ public class SX {
   }
 
   //<editor-fold desc="03 get option">
+
   /**
    * if no option file is found, the option is taken as not existing<br>
    * side-effect: if no options file is there, an options store will be created in memory<br>
@@ -445,7 +438,7 @@ public class SX {
    * @return the converted integer number, default if absent, empty or not possible
    */
   public static int getOptionInteger(String pName, Integer nDefault) {
-    return options().getInteger(pName, nDefault);
+    return options().getInt(pName, nDefault);
   }
 
   /**
@@ -464,28 +457,8 @@ public class SX {
    * @param pName the option key (case-sensitive)
    * @return the converted float number, default if absent or not possible
    */
-  public static float getOptionFloat(String pName, float nDefault) {
-    return options().getFloat(pName, nDefault);
-  }
-
-  /**
-   * {link getOption}
-   *
-   * @param pName the option key (case-sensitive)
-   * @return the converted float number, 0 if absent or not possible
-   */
-  public static float getOptionFloat(String pName) {
-    return getOptionFloat(pName, 0);
-  }
-
-  /**
-   * {link getOption}
-   *
-   * @param pName the option key (case-sensitive)
-   * @return the converted float number, default if absent or not possible
-   */
-  public static double getOptionDouble(String pName, double nDefault) {
-    return options().getDouble(pName, nDefault);
+  public static double getOptionNum(String pName, double nDefault) {
+    return options().getNum(pName, nDefault);
   }
 
   /**
@@ -494,8 +467,8 @@ public class SX {
    * @param pName the option key (case-sensitive)
    * @return the converted double number, 0 if absent or not possible
    */
-  public static double getOptionDouble(String pName) {
-    return getOptionDouble(pName, 0);
+  public static double getOptionNum(String pName) {
+    return getOptionNum(pName, 0);
   }
 
   /**
@@ -521,6 +494,7 @@ public class SX {
   //</editor-fold>
 
   //<editor-fold desc="05 set option">
+
   /**
    * {link getOption}
    *
@@ -537,7 +511,7 @@ public class SX {
    * @param pName  the option key (case-sensitive)
    * @param nValue the value to be set
    */
-  public static void setOptionInteger(String pName, int nValue) {
+  public static void setOptionInt(String pName, int nValue) {
     options().setInteger(pName, nValue);
   }
 
@@ -547,18 +521,8 @@ public class SX {
    * @param pName  the option key (case-sensitive)
    * @param nValue the value to be set
    */
-  public static void setOptionFloat(String pName, float nValue) {
-    options().setFloat(pName, nValue);
-  }
-
-  /**
-   * {link getOption}
-   *
-   * @param pName  the option key (case-sensitive)
-   * @param nValue the value to be set
-   */
-  public static void setOptionDouble(String pName, double nValue) {
-    options().setDouble(pName, nValue);
+  public static void setOptionNum(String pName, Number nValue) {
+    options().setNum(pName, nValue);
   }
 
   /**
@@ -568,11 +532,12 @@ public class SX {
    * @param bValue the value to be set
    */
   public static void setOptionBool(String pName, boolean bValue) {
-    options().setBoolean(pName, bValue);
+    options().setBool(pName, bValue);
   }
   //</editor-fold>
 
   //<editor-fold desc="09 all options">
+
   /**
    * check whether options are defined
    *

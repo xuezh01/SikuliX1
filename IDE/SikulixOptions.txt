@@ -1,0 +1,15 @@
+# on: global debugging (like -v)
+testing
+
+# off: switch off language support for testing
+jython = off
+# allow key value lines (no =)
+jruby = no
+
+# a key must not repeat
+# TODO implement as array
+jruby = on
+
+Settings.ActionLogs = true
+
+jruby = false

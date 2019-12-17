@@ -555,6 +555,7 @@ public class SikulixIDE extends JFrame {
       editorPane.setCaretPosition(0);
       return true;
     }
+    //TODO talk about the reason and leave it in the session
     log(-1, "restoreScriptFromSession: Can't load: %s", file);
     tabs.remove(tabs.getSelectedIndex());
     return false;

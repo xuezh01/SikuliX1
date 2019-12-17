@@ -5,15 +5,13 @@
 package org.sikuli.script;
 
 import org.sikuli.basics.Debug;
+import org.sikuli.basics.FileManager;
 import org.sikuli.basics.Settings;
 import org.sikuli.script.support.RunTime;
 
 import java.io.*;
 import java.lang.reflect.Field;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 public class Options {
 
@@ -40,6 +38,10 @@ public class Options {
 
   private Properties pOptions = null;
   private File optionsFile = null;
+  private String optionsFileContent = "";
+  private Map<String, String> optionsSource = new HashMap<>();
+  private List<String> optionsOrdered = new ArrayList<>();
+  private List<String> optionsValues = new ArrayList<>();
 
   static boolean testing = false;
 
@@ -104,11 +106,11 @@ public class Options {
               if (fType == "boolean") {
                 field.setBoolean(null, is(sKey));
               } else if (fType == "int") {
-                field.setInt(null, getInteger(sKey));
+                field.setInt(null, getInt(sKey));
               } else if (fType == "float") {
-                field.setFloat(null, getFloat(sKey));
+                field.setFloat(null, (float) getNum(sKey));
               } else if (fType == "double") {
-                field.setDouble(null, getDouble(sKey));
+                field.setDouble(null, getNum(sKey));
               } else if (fType == "String") {
                 field.set(null, get(sKey));
               }
@@ -139,7 +141,7 @@ public class Options {
           continue;
         }
         if (settingsOptions.contains(field.getName() + ",")) {
-          Debug.log(3,"StartUp: SikulixOptions: %s (%s) %s", field.getName(), field.getType(), value);
+          Debug.log(3, "StartUp: SikulixOptions: %s (%s) %s", field.getName(), field.getType(), value);
         }
       }
     }
@@ -181,6 +183,49 @@ public class Options {
     } else {
       optionsFile = new File(fOptionsFolder, fpOptions);
     }
+    String[] content = FileManager.readFileToStringArray(optionsFile);
+    String currentHeader = "";
+    for (String line : content) {
+      line = line.trim();
+      //Debug.logp(line);
+      if (line.startsWith("#") || line.isEmpty()) {
+        currentHeader += line + "\n";
+        continue;
+      }
+      String[] keyValue = line.split("=");
+      int keyLength = keyValue[0].length();
+      String key = keyValue[0].trim();
+      String value = "";
+      if (keyValue.length == 1) {
+        String[] keyValue1 = key.split("\\s");
+        if (keyValue1.length > 1) {
+          key = keyValue1[0].trim();
+          value = line.substring(keyValue1[0].length() + 1).trim();
+        }
+      } else {
+        String[] keyValue1 = key.split("\\s");
+        if (keyValue1.length > 1) {
+          Debug.error("Options: load: key not compact: %s", line);
+          key = keyValue1[0].trim();
+          value = line.substring(keyValue1[0].length() + 1).trim();
+        } else {
+          value = line.substring(keyLength + 1).trim();
+        }
+      }
+      //Debug.logp("====\n%s%s = %s ====", currentHeader, key, value);
+      if (optionsOrdered.contains(key)) {
+        Debug.error("Options: load: double key (last wins): %s", line);
+        String dupKey = "+" + optionsOrdered.size() + "#" + key;
+        optionsOrdered.set(optionsOrdered.indexOf(key), dupKey);
+        optionsSource.put(dupKey, optionsSource.get(key));
+      }
+      optionsOrdered.add(key);
+      optionsSource.put(key, currentHeader);
+      optionsValues.add(value);
+      currentHeader = "";
+    }
+    dumpOptions();
+    Debug.logp("");
   }
 
   /**
@@ -208,16 +253,27 @@ public class Options {
     if (!fOptions.isAbsolute()) {
       fOptions = new File(RunTime.getWorkDir(), fpOptions);
     }
-    try {
-      OutputStream os;
-      os = new FileOutputStream(fOptions);
-      pOptions.store(os, "");
-      os.close();
-    } catch (Exception ex) {
-      log(-1, "saveOptions: %s (error %s)", fOptions, ex.getMessage());
+    String out = "";
+    if (optionsOrdered.size() > 0) {
+      for (String key : optionsOrdered) {
+        out += optionsSource.get(key);
+        String value = pOptions.getProperty(key);
+        if (key.startsWith("+")) {
+          value = optionsValues.get(optionsOrdered.indexOf(key));
+          key = key.split("#")[1];
+        }
+        if (!value.isEmpty()) {
+          out += key + " = " + value + "\n";
+        } else {
+          out += key + "\n";
+        }
+      }
+    }
+    if (!FileManager.writeStringToFile(out, fOptions)) {
+      log(-1, "saveOptions: did not work %s", fOptions);
       return false;
     }
-    log(lvl, "saved: %s", fpOptions);
+    log(lvl, "saved: %s", fOptions);
     return true;
   }
   //</editor-fold>
@@ -264,7 +320,7 @@ public class Options {
    * @param nDefault the default to be returned if option absent, empty or not convertible
    * @return the converted integer number, default if absent, empty or not possible
    */
-  public int getInteger(String pName, Integer nDefault) {
+  public int getInt(String pName, Integer nDefault) {
     if (pOptions == null) {
       return nDefault;
     }
@@ -283,8 +339,8 @@ public class Options {
    * @param pName the option key (case-sensitive)
    * @return the converted integer number, 0 if absent or not possible
    */
-  public int getInteger(String pName) {
-    return getInteger(pName, 0);
+  public int getInt(String pName) {
+    return getInt(pName, 0);
   }
 
   /**
@@ -293,36 +349,7 @@ public class Options {
    * @param pName the option key (case-sensitive)
    * @return the converted float number, default if absent or not possible
    */
-  public float getFloat(String pName, float nDefault) {
-    if (pOptions == null) {
-      return nDefault;
-    }
-    String pVal = pOptions.getProperty(pName, "0");
-    float nVal = nDefault;
-    try {
-      nVal = Float.parseFloat(pVal);
-    } catch (Exception ex) {
-    }
-    return nVal;
-  }
-
-  /**
-   * {link getOption}
-   *
-   * @param pName the option key (case-sensitive)
-   * @return the converted float number, 0 if absent or not possible
-   */
-  public float getFloat(String pName) {
-    return getFloat(pName, 0);
-  }
-
-  /**
-   * {link getOption}
-   *
-   * @param pName the option key (case-sensitive)
-   * @return the converted float number, default if absent or not possible
-   */
-  public double getDouble(String pName, double nDefault) {
+  public double getNum(String pName, double nDefault) {
     if (pOptions == null) {
       return nDefault;
     }
@@ -341,8 +368,8 @@ public class Options {
    * @param pName the option key (case-sensitive)
    * @return the converted double number, 0 if absent or not possible
    */
-  public double getDouble(String pName) {
-    return getDouble(pName, 0);
+  public double getNum(String pName) {
+    return getNum(pName, 0);
   }
 
   /**
@@ -374,6 +401,11 @@ public class Options {
   public boolean is(String pName) {
     return is(pName, false);
   }
+
+  public String getComment(String comment) {
+    //TODO getComment
+    return "";
+  }
   //</editor-fold>
 
   //<editor-fold desc="05 set option">
@@ -404,17 +436,7 @@ public class Options {
    * @param pName  the option key (case-sensitive)
    * @param nValue the value to be set
    */
-  public void setFloat(String pName, float nValue) {
-    pOptions.setProperty(pName, "" + nValue);
-  }
-
-  /**
-   * {link getOption}
-   *
-   * @param pName  the option key (case-sensitive)
-   * @param nValue the value to be set
-   */
-  public void setDouble(String pName, double nValue) {
+  public void setNum(String pName, Number nValue) {
     pOptions.setProperty(pName, "" + nValue);
   }
 
@@ -424,8 +446,12 @@ public class Options {
    * @param pName  the option key (case-sensitive)
    * @param bValue the value to be set
    */
-  public void setBoolean(String pName, boolean bValue) {
+  public void setBool(String pName, boolean bValue) {
     pOptions.setProperty(pName, is(pName, bValue) ? "true" : "false");
+  }
+
+  public void setComment(String key, String comment) {
+    //TODO setComment
   }
   //</editor-fold>
 
@@ -469,7 +495,10 @@ public class Options {
     if (hasOptions()) {
       Map<String, String> mapOptions = getOptions();
       Debug.logp("*** options dump");
-      for (String sOpt : mapOptions.keySet()) {
+      for (String sOpt : optionsOrdered) {
+        if (sOpt.startsWith("+")) {
+          continue;
+        }
         Debug.logp("%s = %s", sOpt, mapOptions.get(sOpt));
       }
       Debug.logp("*** options dump end");
