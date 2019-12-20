@@ -21,6 +21,18 @@ import java.util.*;
  */
 public class Region {
 
+  /*
+   * Used for LEGACY handling in
+   * int wheel(PFRML target, int direction, int steps, int modifiers)
+   */
+  private final Set<Integer> WHEEL_MODIFIERS = new HashSet<>(Arrays.asList(new Integer[] {
+    0,
+    KeyModifier.CTRL,
+    KeyModifier.ALT,
+    KeyModifier.SHIFT,
+    KeyModifier.CMD
+  }));
+
   private static String me = "Region: ";
   private static int lvl = 3;
 
@@ -477,7 +489,7 @@ public class Region {
     if (!isOtherScreen()) {
       return loc;
     }
-    return loc.setOtherScreen(scr);
+    return loc.setOtherScreen(getScreen());
   }
 
   /**
@@ -1434,7 +1446,7 @@ public class Region {
    */
   public Region offset(Object whatever) {
     Offset offset = new Offset(whatever);
-    return Region.create(x + offset.x, y + offset.y, w, h, scr);
+    return Region.create(x + offset.x, y + offset.y, w, h, getScreen());
   }
 
   /**
@@ -1445,7 +1457,7 @@ public class Region {
    * @return the new region
    */
   public Region offset(int x, int y) {
-    return Region.create(this.x + x, this.y + y, w, h, scr);
+    return Region.create(this.x + x, this.y + y, w, h, getScreen());
   }
 
   /**
@@ -1500,7 +1512,7 @@ public class Region {
   public Region grow(int w, int h) {
     Rectangle r = getRect();
     r.grow(w, h);
-    return Region.create(r.x, r.y, r.width, r.height, scr);
+    return Region.create(r.x, r.y, r.width, r.height, getScreen());
   }
 
   /**
@@ -1514,7 +1526,7 @@ public class Region {
    * @return the new region
    */
   public Region grow(int l, int r, int t, int b) {
-    return Region.create(x - l, y - t, w + l + r, h + t + b, scr);
+    return Region.create(x - l, y - t, w + l + r, h + t + b, getScreen());
   }
 
   /**
@@ -1562,7 +1574,7 @@ public class Region {
     } else {
       _x = x + w;
     }
-    return Region.create(_x, y, Math.abs(width), h, scr);
+    return Region.create(_x, y, Math.abs(width), h, getScreen());
   }
 
   /**
@@ -1607,7 +1619,7 @@ public class Region {
     } else {
       _x = x - width;
     }
-    return Region.create(getScreen().getBounds().intersection(new Rectangle(_x, y, Math.abs(width), h)), scr);
+    return Region.create(getScreen().getBounds().intersection(new Rectangle(_x, y, Math.abs(width), h)), getScreen());
   }
 
   /**
@@ -1652,7 +1664,7 @@ public class Region {
     } else {
       _y = y - height;
     }
-    return Region.create(getScreen().getBounds().intersection(new Rectangle(x, _y, w, Math.abs(height))), scr);
+    return Region.create(getScreen().getBounds().intersection(new Rectangle(x, _y, w, Math.abs(height))), getScreen());
   }
 
   /**
@@ -1697,7 +1709,7 @@ public class Region {
     } else {
       _y = y + h;
     }
-    return Region.create(x, _y, w, Math.abs(height), scr);
+    return Region.create(x, _y, w, Math.abs(height), getScreen());
   }
 
   /**
@@ -1708,7 +1720,7 @@ public class Region {
    */
   public Region union(Region ur) {
     Rectangle r = getRect().union(ur.getRect());
-    return Region.create(r.x, r.y, r.width, r.height, scr);
+    return Region.create(r.x, r.y, r.width, r.height, getScreen());
   }
 
   /**
@@ -1719,7 +1731,7 @@ public class Region {
    */
   public Region intersection(Region ir) {
     Rectangle r = getRect().intersection(ir.getRect());
-    return Region.create(r.x, r.y, r.width, r.height, scr);
+    return Region.create(r.x, r.y, r.width, r.height, getScreen());
   }
 
   public Region getInset(Region inset) {
@@ -2889,7 +2901,7 @@ public class Region {
 
   private void runFinder(Finder f, Object target) {
     if (Debug.shouldHighlight()) {
-      if (this.scr.getW() > w + 20 && this.scr.getH() > h + 20) {
+      if (getScreen().getW() > w + 20 && getScreen().getH() > h + 20) {
         highlight(2, "#000255000");
       }
     }
@@ -2923,7 +2935,7 @@ public class Region {
       if (this.contains(r)) {
         Finder f = new Finder(base.getSub(r.getRect()), r);
         if (Debug.shouldHighlight()) {
-          if (this.scr.getW() > w + 10 && this.scr.getH() > h + 10) {
+          if (getScreen().getW() > w + 10 && getScreen().getH() > h + 10) {
             highlight(2, "#000255000");
           }
         }
@@ -3327,7 +3339,7 @@ public class Region {
       Match m = wait(target);
       if (m != null) {
         if (isOtherScreen()) {
-          return m.getTarget().setOtherScreen(scr);
+          return m.getTarget().setOtherScreen(getScreen());
         } else {
           return m.getTarget();
         }
@@ -3935,8 +3947,44 @@ public class Region {
    * @return 1 if possible, 0 otherwise
    */
   public int click() {
+    return click(0);
+  }
+
+  /**
+   * left click at the region's last successful match <br>use center if no lastMatch <br>if region is a match: click
+   * targetOffset
+   *
+   * @param modifiers constants according to class Key - combine using +
+   * @return 1 if possible, 0 otherwise
+   */
+  public int click(String modifiers) {
+    int modifiersMask = Key.convertModifiers(modifiers);
+
+    /*
+     * modifiers might be a pattern file name
+     * eg. Region(...).click("pattern.png")
+     */
+    if(modifiersMask == 0) {
+      try { // needed to cut throw chain for FindFailed
+        return click(modifiers, 0);
+      } catch (FindFailed ex) {
+        return 0;
+      }
+    }
+
+    return click(modifiersMask);
+  }
+
+  /**
+   * left click at the region's last successful match <br>use center if no lastMatch <br>if region is a match: click
+   * targetOffset
+   *
+   * @param modifiers the value of the resulting bitmask (see KeyModifier)   *
+   * @return 1 if possible, 0 otherwise
+   */
+  public int click(int modifiers) {
     try { // needed to cut throw chain for FindFailed
-      return click(checkMatch(), 0);
+      return click(checkMatch(), modifiers);
     } catch (FindFailed ex) {
       return 0;
     }
@@ -3963,11 +4011,27 @@ public class Region {
    *
    * @param <PFRML>   to search: Pattern, Filename, Text, Region, Match or Location
    * @param target    Pattern, Filename, Text, Region, Match or Location
+   * @param modifiers constants according to class Key - combine using +
+   * @return 1 if possible, 0 otherwise
+   * @throws FindFailed for Pattern or Filename
+   */
+  public <PFRML> int click(PFRML target, String modifiers) throws FindFailed {
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return click(target, modifiersMask);
+  }
+
+  /**
+   * left click at the given target location<br> holding down the given modifier keys<br>
+   * Pattern or Filename - do a find before and use the match<br> Region - position at center<br>
+   * Match - position at match's targetOffset<br> Location - position at that point<br>
+   *
+   * @param <PFRML>   to search: Pattern, Filename, Text, Region, Match or Location
+   * @param target    Pattern, Filename, Text, Region, Match or Location
    * @param modifiers the value of the resulting bitmask (see KeyModifier)
    * @return 1 if possible, 0 otherwise
    * @throws FindFailed for Pattern or Filename
    */
-  public <PFRML> int click(PFRML target, Integer modifiers) throws FindFailed {
+  public <PFRML> int click(PFRML target, int modifiers) throws FindFailed {
     int ret = 0;
     if (target instanceof ArrayList) {
       ArrayList parms = (ArrayList) target;
@@ -3992,8 +4056,44 @@ public class Region {
    * @return 1 if possible, 0 otherwise
    */
   public int doubleClick() {
+    return doubleClick(0);
+  }
+
+  /**
+   * double click at the region's last successful match <br>use center if no lastMatch <br>if region is a match: click
+   * targetOffset
+   *
+   * @param modifiers constants according to class Key - combine using +
+   * @return 1 if possible, 0 otherwise
+   */
+  public int doubleClick(String modifiers) {
+    int modifiersMask = Key.convertModifiers(modifiers);
+
+    /*
+     * modifiers might be a pattern file name
+     * eg. Region(...).click("pattern.png")
+     */
+    if(modifiersMask == 0) {
+      try { // needed to cut throw chain for FindFailed
+        return doubleClick(modifiers, 0);
+      } catch (FindFailed ex) {
+        return 0;
+      }
+    }
+
+    return doubleClick(modifiersMask);
+  }
+
+  /**
+   * double click at the region's last successful match <br>use center if no lastMatch <br>if region is a match: click
+   * targetOffset
+   *
+   * @param modifiers the value of the resulting bitmask (see KeyModifier)
+   * @return 1 if possible, 0 otherwise
+   */
+  public int doubleClick(int modifiers) {
     try { // needed to cut throw chain for FindFailed
-      return doubleClick(checkMatch(), 0);
+      return doubleClick(checkMatch(), modifiers);
     } catch (FindFailed ex) {
       return 0;
     }
@@ -4020,11 +4120,27 @@ public class Region {
    *
    * @param <PFRML>   Pattern, Filename, Text, Region, Match or Location
    * @param target    Pattern, Filename, Text, Region, Match or Location
+   * @param modifiers constants according to class Key - combine using +
+   * @return 1 if possible, 0 otherwise
+   * @throws FindFailed for Pattern or Filename
+   */
+  public <PFRML> int doubleClick(PFRML target, String modifiers) throws FindFailed {
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return doubleClick(target, modifiersMask);
+  }
+
+  /**
+   * double click at the given target location<br> holding down the given modifier keys<br>
+   * Pattern or Filename - do a find before and use the match<br> Region - position at center<br > Match - position at
+   * match's targetOffset<br> Location - position at that point<br>
+   *
+   * @param <PFRML>   Pattern, Filename, Text, Region, Match or Location
+   * @param target    Pattern, Filename, Text, Region, Match or Location
    * @param modifiers the value of the resulting bitmask (see KeyModifier)
    * @return 1 if possible, 0 otherwise
    * @throws FindFailed for Pattern or Filename
    */
-  public <PFRML> int doubleClick(PFRML target, Integer modifiers) throws FindFailed {
+  public <PFRML> int doubleClick(PFRML target, int modifiers) throws FindFailed {
     Location loc = getLocationFromTarget(target);
     int ret = 0;
     if (null != loc) {
@@ -4041,8 +4157,44 @@ public class Region {
    * @return 1 if possible, 0 otherwise
    */
   public int rightClick() {
+    return rightClick(0);
+  }
+
+  /**
+   * right click at the region's last successful match <br>use center if no lastMatch <br>if region is a match: click
+   * targetOffset
+   *
+   * @param modifiers constants according to class Key - combine using +
+   * @return 1 if possible, 0 otherwise
+   */
+  public int rightClick(String modifiers) {
+    int modifiersMask = Key.convertModifiers(modifiers);
+
+    /*
+     * modifiers might be a pattern file name
+     * eg. Region(...).click("pattern.png")
+     */
+    if(modifiersMask == 0) {
+      try { // needed to cut throw chain for FindFailed
+        return rightClick(modifiers, 0);
+      } catch (FindFailed ex) {
+        return 0;
+      }
+    }
+
+    return rightClick(modifiersMask);
+  }
+
+  /**
+   * right click at the region's last successful match <br>use center if no lastMatch <br>if region is a match: click
+   * targetOffset
+   *
+   * @param modifiers the value of the resulting bitmask (see KeyModifier)
+   * @return 1 if possible, 0 otherwise
+   */
+  public int rightClick(int modifiers) {
     try { // needed to cut throw chain for FindFailed
-      return rightClick(checkMatch(), 0);
+      return rightClick(checkMatch(), modifiers);
     } catch (FindFailed ex) {
       return 0;
     }
@@ -4068,11 +4220,27 @@ public class Region {
    *
    * @param <PFRML>   Pattern, Filename, Text, Region, Match or Location
    * @param target    Pattern, Filename, Text, Region, Match or Location
+   * @param modifiers constants according to class Key - combine using +
+   * @return 1 if possible, 0 otherwise
+   * @throws FindFailed for Pattern or Filename
+   */
+  public <PFRML> int rightClick(PFRML target, String modifiers) throws FindFailed {
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return rightClick(target, modifiersMask);
+  }
+
+  /**
+   * right click at the given target location<br> holding down the given modifier keys<br>
+   * Pattern or Filename - do a find before and use the match<br> Region - position at center<br > Match - position at
+   * match's targetOffset<br> Location - position at that point<br>
+   *
+   * @param <PFRML>   Pattern, Filename, Text, Region, Match or Location
+   * @param target    Pattern, Filename, Text, Region, Match or Location
    * @param modifiers the value of the resulting bitmask (see KeyModifier)
    * @return 1 if possible, 0 otherwise
    * @throws FindFailed for Pattern or Filename
    */
-  public <PFRML> int rightClick(PFRML target, Integer modifiers) throws FindFailed {
+  public <PFRML> int rightClick(PFRML target, int modifiers) throws FindFailed {
     Location loc = getLocationFromTarget(target);
     int ret = 0;
     if (null != loc) {
@@ -4301,8 +4469,69 @@ public class Region {
    * @return 1 in any case
    */
   public int wheel(int direction, int steps) {
-    Mouse.wheel(direction, steps, this);
-    return 1;
+   return wheel(direction, steps, 0);
+  }
+
+  /**
+   * Move the wheel at the current mouse position<br> the given steps in the given direction: <br >Button.WHEEL_DOWN,
+   * Button.WHEEL_UP
+   *
+   * @param direction to move the wheel
+   * @param steps     the number of steps
+   * @param modifiers constants according to class Key - combine using +
+   * @return 1 in any case
+   */
+  public int wheel(int direction, int steps, String modifiers) {
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return wheel(direction, steps, modifiersMask);
+  }
+
+
+  /**
+   * Move the wheel at the current mouse position<br> the given steps in the given direction: <br >Button.WHEEL_DOWN,
+   * Button.WHEEL_UP
+   *
+   * @param direction to move the wheel
+   * @param steps     the number of steps
+   * @param modifiers the value of the resulting bitmask (see KeyModifier)
+   * @return 1 in any case
+   */
+  public int wheel(int direction, int steps, int modifiers) {
+    return wheel(direction, steps, modifiers, Mouse.WHEEL_STEP_DELAY);
+  }
+
+  /**
+   * Move the wheel at the current mouse position<br> the given steps in the given direction: <br >Button.WHEEL_DOWN,
+   * Button.WHEEL_UP
+   *
+   * @param direction to move the wheel
+   * @param steps     the number of steps
+   * @param modifiers constants according to class Key - combine using +
+   * @param stepDelay number of milliseconds to wait when incrementing the step value
+   * @return 1 in any case
+   */
+  public int wheel(int direction, int steps, String modifiers, int stepDelay) {
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return wheel(direction, steps, modifiersMask, stepDelay);
+  }
+
+  /**
+   * Move the wheel at the current mouse position<br> the given steps in the given direction: <br >Button.WHEEL_DOWN,
+   * Button.WHEEL_UP
+   *
+   * @param direction to move the wheel
+   * @param steps     the number of steps
+   * @param modifiers the value of the resulting bitmask (see KeyModifier)
+   * @param stepDelay number of milliseconds to wait when incrementing the step value
+   * @return 1 in any case
+   */
+  public int wheel(int direction, int steps, int modifiers, int stepDelay) {
+    try { // needed to cut throw chain for FindFailed
+      wheel(checkMatch(),  direction, steps, modifiers, stepDelay);
+      return 1;
+    } catch (FindFailed ex) {
+      return 0;
+    }
   }
 
   /**
@@ -4317,7 +4546,7 @@ public class Region {
    * @throws FindFailed if the Find operation failed
    */
   public <PFRML> int wheel(PFRML target, int direction, int steps) throws FindFailed {
-    return wheel(target, direction, steps, Mouse.WHEEL_STEP_DELAY);
+    return wheel(target, direction, steps, 0);
   }
 
   /**
@@ -4328,17 +4557,84 @@ public class Region {
    * @param target    Pattern, Filename, Text, Region, Match or Location
    * @param direction to move the wheel
    * @param steps     the number of steps
-   * @param stepDelay number of miliseconds to wait when incrementing the step value
+   * @param modifiers constants according to class Key - combine using +
    * @return 1 if possible, 0 otherwise
    * @throws FindFailed if the Find operation failed
    */
-  public <PFRML> int wheel(PFRML target, int direction, int steps, int stepDelay) throws FindFailed {
+  public <PFRML> int wheel(PFRML target, int direction, int steps, String modifiers) throws FindFailed {
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return wheel(target, direction, steps, modifiersMask, Mouse.WHEEL_STEP_DELAY);
+  }
+
+  /**
+   * move the mouse pointer to the given target location<br> and move the wheel the given steps in the given direction:
+   * <br>Button.WHEEL_DOWN, Button.WHEEL_UP
+   *
+   * @param <PFRML>   Pattern, Filename, Text, Region, Match or Location target
+   * @param target    Pattern, Filename, Text, Region, Match or Location
+   * @param direction to move the wheel
+   * @param steps     the number of steps
+   * @param modifiers the value of the resulting bitmask (see KeyModifier)
+   * @return 1 if possible, 0 otherwise
+   * @throws FindFailed if the Find operation failed
+   */
+  public <PFRML> int wheel(PFRML target, int direction, int steps, int modifiers) throws FindFailed {
+    int stepDelay = Mouse.WHEEL_STEP_DELAY;
+
+    /*
+     * LEGACY
+     * Previous method signature was
+     *
+     * public <PFRML> int wheel(PFRML target, int direction, int steps, int stepDelay)
+     *
+     * That's why we interpret the modifiers parameter as stepDelay if it is not a
+     * reasonable modifier for wheel actions.
+     */
+    if (!WHEEL_MODIFIERS.contains(modifiers)) {
+      modifiers = 0;
+      stepDelay = modifiers;
+    }
+
+    return wheel(target, direction, steps, modifiers, stepDelay);
+  }
+
+  /**
+   * move the mouse pointer to the given target location<br> and move the wheel the given steps in the given direction:
+   * <br>Button.WHEEL_DOWN, Button.WHEEL_UP
+   *
+   * @param <PFRML>   Pattern, Filename, Text, Region, Match or Location target
+   * @param target    Pattern, Filename, Text, Region, Match or Location
+   * @param direction to move the wheel
+   * @param steps     the number of steps
+   * @param modifiers constants according to class Key - combine using +
+   * @param stepDelay number of milliseconds to wait when incrementing the step value
+   * @return 1 if possible, 0 otherwise
+   * @throws FindFailed if the Find operation failed
+   */
+  public <PFRML> int wheel(PFRML target, int direction, int steps, String modifiers, int stepDelay) throws FindFailed {
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return wheel(target, direction, steps, modifiersMask, stepDelay);
+  }
+
+  /**
+   * move the mouse pointer to the given target location<br> and move the wheel the given steps in the given direction:
+   * <br>Button.WHEEL_DOWN, Button.WHEEL_UP
+   *
+   * @param <PFRML>   Pattern, Filename, Text, Region, Match or Location target
+   * @param target    Pattern, Filename, Text, Region, Match or Location
+   * @param direction to move the wheel
+   * @param steps     the number of steps
+   * @param stepDelay number of milliseconds to wait when incrementing the step value
+   * @return 1 if possible, 0 otherwise
+   * @throws FindFailed if the Find operation failed
+   */
+  public <PFRML> int wheel(PFRML target, int direction, int steps, int modifiers, int stepDelay) throws FindFailed {
     Location loc = getLocationFromTarget(target);
     if (loc != null) {
       Mouse.use(this);
       Mouse.keep(this);
       Mouse.move(loc, this);
-      Mouse.wheel(direction, steps, this, stepDelay);
+      Mouse.wheel(this, direction, steps, modifiers, stepDelay);
       Mouse.let(this);
       return 1;
     }
@@ -4590,13 +4886,20 @@ public class Region {
    */
   public int type(String text, String modifiers) {
     String target = null;
-    int modifiersNew = Key.convertModifiers(modifiers);
-    if (modifiersNew == 0) {
+    int modifiersMask = Key.convertModifiers(modifiers);
+
+    /*
+     * If no modifiers are active it might be that the
+     * method has been called with the intention to call
+     * in fact type(String patternFilename, String text).
+     * e.g. Region(...).type("pattern.png", "Hello world")
+     */
+    if (modifiersMask == 0) {
       target = text;
       text = modifiers;
     }
     try {
-      return keyin(target, text, modifiersNew);
+      return keyin(target, text, modifiersMask);
     } catch (FindFailed findFailed) {
       return 0;
     }
@@ -4646,8 +4949,8 @@ public class Region {
    * @throws FindFailed if not found
    */
   public <PFRML> int type(PFRML target, String text, String modifiers) throws FindFailed {
-    int modifiersNew = Key.convertModifiers(modifiers);
-    return keyin(target, text, modifiersNew);
+    int modifiersMask = Key.convertModifiers(modifiers);
+    return keyin(target, text, modifiersMask);
   }
 
   private <PFRML> int keyin(PFRML target, String text, int modifiers) throws FindFailed {
