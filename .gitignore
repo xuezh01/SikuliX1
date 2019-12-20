@@ -22,3 +22,5 @@ original/
 .DS_Store
 native/
 Images*/
+SikulixOptions.txt
+SikulixOptionsOrg.txt
